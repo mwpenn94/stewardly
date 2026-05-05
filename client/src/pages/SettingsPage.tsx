@@ -2301,21 +2301,37 @@ function SearchEngineConfig() {
 }
 
 /**
- * Sovereign Mode — One-Click Activation
+ * Sovereign Mode — True Manus Parity+ UX
  * 
- * Single button → Codespace + Webhook + Auto-Deploy all provisioned.
- * Deep Manus parity+ achieved through automation, not documentation.
+ * Two buttons: Preview and Publish. Zero terminal. Zero git commands.
+ * The app IS the command center.
  */
 function SovereignModeCard() {
-  const statusQuery = trpc.sovereignSync.status.useQuery(undefined, { refetchInterval: 10000 });
+  const statusQuery = trpc.sovereignSync.status.useQuery(undefined, { refetchInterval: 8000 });
+  const previewQuery = trpc.sovereignSync.getPreviewUrl.useQuery(undefined, { refetchInterval: 15000 });
   const activateMutation = trpc.sovereignSync.activate.useMutation({
     onSuccess: (data) => {
       if (data.success) {
-        toast.success("Sovereign Mode activated! Your external dev environment is ready.");
-      } else {
-        toast.info("Sovereign Mode partially activated. Check status for details.");
+        toast.success("Sovereign Mode activated!");
       }
       statusQuery.refetch();
+      previewQuery.refetch();
+    },
+    onError: (err: any) => { toast.error(err.message); },
+  });
+  const publishMutation = trpc.sovereignSync.instantPublish.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success("Publishing started! Your site will be live in ~60 seconds.", {
+          action: data.publishedUrl ? { label: "Open", onClick: () => window.open(data.publishedUrl!, "_blank") } : undefined,
+        });
+      } else {
+        toast.error(data.error || "Publish failed");
+      }
+      // Start polling for completion
+      setTimeout(() => { statusQuery.refetch(); previewQuery.refetch(); }, 5000);
+      setTimeout(() => { statusQuery.refetch(); previewQuery.refetch(); }, 15000);
+      setTimeout(() => { statusQuery.refetch(); previewQuery.refetch(); }, 30000);
     },
     onError: (err: any) => { toast.error(err.message); },
   });
@@ -2328,200 +2344,190 @@ function SovereignModeCard() {
   });
 
   const status = statusQuery.data;
+  const preview = previewQuery.data;
   const isActive = status?.stage === "active";
-  const isPartial = status?.github.connected && status?.repo.connected && !isActive;
-  const isLoading = activateMutation.isPending || deactivateMutation.isPending || statusQuery.isLoading;
+  const isReady = status?.github.connected && status?.repo.connected;
+  const isPublishing = publishMutation.isPending;
+  const isActivating = activateMutation.isPending;
 
-  const handleActivate = () => {
-    activateMutation.mutate({});
+  // Auto-activate if prerequisites are met but not yet active
+  const handlePreview = () => {
+    if (preview?.url) {
+      window.open(preview.url, "_blank");
+    } else if (isActive && status?.codespace.url) {
+      // Open Codespace which has the dev server
+      window.open(status.codespace.url, "_blank");
+    } else if (!isActive && isReady) {
+      // Auto-activate first, then preview will be available
+      activateMutation.mutate({});
+      toast.info("Setting up your environment... Preview will open shortly.");
+    } else {
+      toast.info("Connect GitHub and a repo first to enable Preview.");
+    }
   };
 
-  const handleDeactivate = () => {
-    deactivateMutation.mutate({ removeWebhook: false });
+  const handlePublish = () => {
+    if (!isActive && isReady) {
+      // Auto-activate first
+      activateMutation.mutate({}, {
+        onSuccess: () => {
+          // Then publish
+          publishMutation.mutate({});
+        },
+      });
+    } else if (isActive) {
+      publishMutation.mutate({});
+    } else {
+      toast.info("Connect GitHub and a repo first to enable Publish.");
+    }
   };
 
-  // Pipeline stages for the status indicator
-  const stages = [
-    { key: "github", label: "GitHub", done: !!status?.github.connected },
-    { key: "repo", label: "Repo", done: !!status?.repo.connected },
-    { key: "webhook", label: "Webhook", done: !!status?.webhook.active },
-    { key: "codespace", label: "Codespace", done: !!status?.codespace.active },
-    { key: "deploy", label: "Auto-Deploy", done: !!status?.webapp.linked },
-  ];
+  // Compute last deployed time
+  const lastDeployed = preview?.lastDeployed
+    ? new Date(preview.lastDeployed).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    : null;
 
   return (
     <div className="mt-8 pt-6 border-t border-border">
-      <div className="flex items-center justify-between mb-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h3 className="text-lg font-semibold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
             Sovereign Mode
           </h3>
           <p className="text-sm text-muted-foreground">
-            One click → Full external dev environment with Manus parity+
+            Preview and publish — just like Manus, but from anywhere
           </p>
         </div>
-        {/* Status badge */}
         {isActive ? (
-          <span className="px-3 py-1.5 rounded-full bg-green-500/10 text-green-400 text-xs font-medium border border-green-500/20">
-            Active
+          <span className="px-3 py-1.5 rounded-full bg-green-500/10 text-green-400 text-xs font-medium border border-green-500/20 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            Live
           </span>
-        ) : isPartial ? (
+        ) : isReady ? (
           <span className="px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium border border-amber-500/20">
-            Partial
+            Ready
           </span>
-        ) : (
-          <span className="px-3 py-1.5 rounded-full bg-muted text-muted-foreground text-xs font-medium border border-border">
-            Inactive
-          </span>
-        )}
+        ) : null}
       </div>
 
-      {/* Pipeline Status Indicator */}
-      <div className="flex items-center gap-1 mb-5">
-        {stages.map((stage, i) => (
-          <div key={stage.key} className="flex items-center gap-1">
-            <div className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all",
-              stage.done
-                ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                : "bg-muted/50 text-muted-foreground border border-border"
-            )}>
-              <div className={cn("w-1.5 h-1.5 rounded-full", stage.done ? "bg-green-400" : "bg-muted-foreground/30")} />
-              {stage.label}
-            </div>
-            {i < stages.length - 1 && (
-              <span className={cn("text-xs", stage.done ? "text-green-400/50" : "text-muted-foreground/30")}>→</span>
-            )}
+      {/* Two Hero Buttons — The Core UX */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        {/* Preview Button */}
+        <button
+          onClick={handlePreview}
+          disabled={isActivating}
+          className={cn(
+            "relative flex flex-col items-center justify-center gap-2 p-5 rounded-xl border transition-all text-center",
+            preview?.url
+              ? "border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 shadow-sm"
+              : isReady
+                ? "border-border bg-card hover:bg-accent hover:border-primary/30"
+                : "border-border bg-muted/30 cursor-not-allowed opacity-60"
+          )}
+        >
+          <div className={cn(
+            "w-10 h-10 rounded-xl flex items-center justify-center",
+            preview?.url ? "bg-primary/15" : "bg-muted"
+          )}>
+            <ExternalLink className={cn("w-5 h-5", preview?.url ? "text-primary" : "text-muted-foreground")} />
           </div>
-        ))}
-      </div>
+          <span className="text-sm font-semibold text-foreground">Preview</span>
+          <span className="text-[10px] text-muted-foreground">
+            {preview?.url ? "Opens your live site" : isReady ? "Click to set up" : "Connect GitHub first"}
+          </span>
+        </button>
 
-      {/* One-Click Action */}
-      {!isActive ? (
-        <div className="space-y-3">
-          {!status?.github.connected && (
-            <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
-              <p className="text-xs text-amber-400">Connect GitHub first (Settings → Connectors), then come back here.</p>
-            </div>
+        {/* Publish Button */}
+        <button
+          onClick={handlePublish}
+          disabled={isPublishing || isActivating}
+          className={cn(
+            "relative flex flex-col items-center justify-center gap-2 p-5 rounded-xl border transition-all text-center",
+            isPublishing
+              ? "border-amber-500/30 bg-amber-500/5 cursor-wait"
+              : isActive
+                ? "border-green-500/30 bg-green-500/5 hover:bg-green-500/10 hover:border-green-500/50 shadow-sm"
+                : isReady
+                  ? "border-border bg-card hover:bg-accent hover:border-green-500/30"
+                  : "border-border bg-muted/30 cursor-not-allowed opacity-60"
           )}
-          {status?.github.connected && !status?.repo.connected && (
-            <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
-              <p className="text-xs text-amber-400">Connect a repository first (GitHub page → Add Repo), then come back here.</p>
-            </div>
-          )}
-          <button
-            onClick={handleActivate}
-            disabled={isLoading || !status?.github.connected || !status?.repo.connected}
-            className={cn(
-              "w-full py-3 rounded-xl text-sm font-semibold transition-all",
-              isLoading
-                ? "bg-primary/50 text-primary-foreground/70 cursor-wait"
-                : status?.github.connected && status?.repo.connected
-                  ? "bg-primary text-primary-foreground hover:opacity-90 shadow-lg shadow-primary/20"
-                  : "bg-muted text-muted-foreground cursor-not-allowed"
-            )}
-          >
-            {isLoading ? (
-              <span className="flex items-center justify-center gap-2">
-                <Zap className="w-4 h-4 animate-pulse" />
-                Activating Sovereign Mode...
-              </span>
+        >
+          <div className={cn(
+            "w-10 h-10 rounded-xl flex items-center justify-center",
+            isPublishing ? "bg-amber-500/15" : isActive ? "bg-green-500/15" : "bg-muted"
+          )}>
+            {isPublishing ? (
+              <Zap className="w-5 h-5 text-amber-400 animate-pulse" />
             ) : (
-              <span className="flex items-center justify-center gap-2">
-                <Zap className="w-4 h-4" />
-                Activate Sovereign Mode
-              </span>
+              <Zap className={cn("w-5 h-5", isActive ? "text-green-400" : "text-muted-foreground")} />
             )}
-          </button>
-          <p className="text-[11px] text-muted-foreground text-center">
-            One click provisions: Webhook + Codespace + Auto-Deploy pipeline
+          </div>
+          <span className="text-sm font-semibold text-foreground">
+            {isPublishing ? "Publishing..." : "Publish"}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            {isPublishing ? "Building & deploying" : isActive ? "One click → live" : isReady ? "Click to activate & publish" : "Connect GitHub first"}
+          </span>
+        </button>
+      </div>
+
+      {/* Status Line */}
+      {lastDeployed && (
+        <p className="text-[11px] text-muted-foreground text-center mb-4">
+          Last published: {lastDeployed}
+          {preview?.type === "published" && " · "}
+          {preview?.type === "published" && (
+            <a href={preview.url!} target="_blank" rel="noopener" className="text-primary hover:underline">
+              {preview.url!.replace(/^https?:\/\//, "").split("/")[0]}
+            </a>
+          )}
+        </p>
+      )}
+
+      {/* Prerequisite hint (only when not ready) */}
+      {!isReady && (
+        <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 mb-4">
+          <p className="text-xs text-amber-400">
+            {!status?.github.connected
+              ? "Connect GitHub (Settings → Connectors) to enable Sovereign Mode."
+              : "Connect a repository (GitHub page → Add Repo) to enable Sovereign Mode."
+            }
           </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {/* Active state — show quick actions */}
-          <div className="p-4 rounded-xl border border-green-500/20 bg-green-500/5">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <p className="text-sm font-medium text-green-400">Sovereign Mode Active</p>
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              Push to <code className="text-[11px] bg-muted px-1 rounded">main</code> → auto-builds → live in ~60s. No Manus session needed.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {status?.codespace.url && (
-                <a
-                  href={status.codespace.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
-                >
-                  <Code className="w-3.5 h-3.5" />
-                  Open Editor
-                </a>
-              )}
-              {status?.webapp.publishedUrl && (
-                <a
-                  href={status.webapp.publishedUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 text-green-400 text-xs font-medium hover:bg-green-500/20 transition-colors"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  View Live Site
-                </a>
-              )}
-              {status?.repo.fullName && (
-                <a
-                  href={`https://github.com/${status.repo.fullName}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/80 transition-colors"
-                >
-                  <Globe className="w-3.5 h-3.5" />
-                  GitHub Repo
-                </a>
-              )}
-            </div>
-          </div>
-
-          {/* Workflow reminder */}
-          <div className="p-3 rounded-lg bg-muted/30 border border-border">
-            <p className="text-[11px] text-muted-foreground font-mono">
-              <span className="text-green-400">#</span> Your daily workflow (from Codespace or local):<br />
-              <span className="text-blue-400">$</span> pnpm dev &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-muted-foreground/50"># develop with hot reload</span><br />
-              <span className="text-blue-400">$</span> git add -A && git commit -m "feat: update" && git push<br />
-              <span className="text-amber-400"># → Auto-build → Live in ~60s → Done</span>
-            </p>
-          </div>
-
-          {/* Deactivate */}
-          <button
-            onClick={handleDeactivate}
-            disabled={isLoading}
-            className="w-full py-2 rounded-lg text-xs text-muted-foreground hover:text-foreground border border-border hover:border-destructive/50 transition-all"
-          >
-            Deactivate Sovereign Mode
-          </button>
         </div>
       )}
 
-      {/* Activation result steps (shown after activation) */}
-      {activateMutation.data?.steps && (
-        <div className="mt-4 p-3 rounded-lg bg-card border border-border">
-          <p className="text-xs font-medium text-foreground mb-2">Activation Results</p>
-          <div className="space-y-1.5">
-            {activateMutation.data.steps.map((step, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs">
-                <div className={cn(
-                  "w-1.5 h-1.5 rounded-full",
-                  step.status === "done" ? "bg-green-400" : step.status === "skipped" ? "bg-amber-400" : "bg-red-400"
-                )} />
-                <span className="text-foreground font-medium">{step.step}</span>
-                <span className="text-muted-foreground">— {step.detail}</span>
-              </div>
-            ))}
-          </div>
+      {/* Quick Actions (when active) */}
+      {isActive && (
+        <div className="flex items-center justify-center gap-3 mb-4">
+          {status?.codespace.url && (
+            <a
+              href={status.codespace.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
+            >
+              <Code className="w-3.5 h-3.5" />
+              Editor
+            </a>
+          )}
+          {status?.repo.fullName && (
+            <a
+              href={`https://github.com/${status.repo.fullName}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              Repo
+            </a>
+          )}
+          <button
+            onClick={() => deactivateMutation.mutate({ removeWebhook: false })}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors"
+          >
+            Deactivate
+          </button>
         </div>
       )}
     </div>

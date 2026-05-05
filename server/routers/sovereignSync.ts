@@ -375,6 +375,139 @@ export const sovereignSyncRouter = router({
   /**
    * openEditor — Returns the VS Code web URL for the active Codespace.
    */
+  /**
+   * instantPublish — One-click publish. Triggers the full deploy pipeline.
+   * No git commands, no terminal, no manual steps. Just click → live.
+   */
+  instantPublish: protectedProcedure
+    .input(z.object({ commitMessage: z.string().optional() }).optional())
+    .mutation(async ({ ctx, input }): Promise<{ success: boolean; publishedUrl: string | null; status: string; deploymentId: number | null; error: string | null }> => {
+      const userId = ctx.user.id;
+
+      // Resolve GitHub connection
+      const connectors = await getUserConnectors(userId);
+      const ghConn = connectors.find(c => c.connectorId === "github" && c.status === "connected");
+      if (!ghConn) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "GitHub not connected. Connect GitHub first." });
+      }
+      const token = ghConn.accessToken || (ghConn.config as Record<string, string>)?.token;
+      if (!token) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "GitHub token unavailable. Reconnect GitHub." });
+      }
+
+      // Find linked project
+      const repos = await getUserGitHubRepos(userId);
+      const activeRepo = repos.find(r => r.status === "connected");
+      if (!activeRepo) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "No connected repo. Connect a repo first." });
+      }
+
+      const projects = await getUserWebappProjects(userId);
+      const linkedProject = projects.find(p => p.githubRepoId === activeRepo.id);
+      if (!linkedProject) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "No linked webapp project. Activate Sovereign Mode first." });
+      }
+
+      // Trigger the existing deployFromGitHub pipeline
+      try {
+        const { createWebappDeployment, updateWebappDeployment, updateWebappProject, getGitHubRepoById } = await import("../db");
+        const { getRepoTree, getFileContent } = await import("../githubApi");
+        const { storagePut } = await import("../storage");
+
+        const repo = await getGitHubRepoById(linkedProject.githubRepoId!);
+        if (!repo) throw new Error("Repo record not found");
+
+        const branch = repo.defaultBranch || "main";
+        const [owner, repoName] = repo.fullName.split("/");
+
+        // Create deployment record
+        await updateWebappProject(linkedProject.id, { deployStatus: "building" });
+        const depId = await createWebappDeployment({
+          projectId: linkedProject.id,
+          userId,
+          versionLabel: input?.commitMessage || `One-click publish`,
+          commitSha: null,
+          commitMessage: input?.commitMessage || "One-click publish from Sovereign Mode",
+          status: "building",
+        });
+
+        // Fire and forget the actual deploy (responds immediately to user)
+        const { triggerSovereignDeploy } = await import("../sovereignDeploy");
+        triggerSovereignDeploy(linkedProject, repo, token, branch, depId).catch((err: any) => {
+          console.error(`[SovereignSync] Deploy failed:`, err);
+        });
+
+        return {
+          success: true,
+          publishedUrl: linkedProject.publishedUrl || null,
+          status: "building",
+          deploymentId: depId,
+          error: null,
+        };
+      } catch (err: any) {
+        return {
+          success: false,
+          publishedUrl: null,
+          status: "failed",
+          deploymentId: null,
+          error: err.message || "Deploy failed",
+        };
+      }
+    }),
+
+  /**
+   * getPreviewUrl — Returns the best available preview URL.
+   * Priority: published URL > Codespace forwarded port > null
+   */
+  getPreviewUrl: protectedProcedure.query(async ({ ctx }): Promise<{ url: string | null; type: "published" | "codespace" | "none"; lastDeployed: string | null }> => {
+    const userId = ctx.user.id;
+
+    // Check for published webapp
+    const repos = await getUserGitHubRepos(userId);
+    const activeRepo = repos.find(r => r.status === "connected");
+    const projects = await getUserWebappProjects(userId);
+    const linkedProject = activeRepo ? projects.find(p => p.githubRepoId === activeRepo.id) : null;
+
+    if (linkedProject?.publishedUrl) {
+      return {
+        url: linkedProject.publishedUrl,
+        type: "published",
+        lastDeployed: linkedProject.lastDeployedAt?.toISOString() || null,
+      };
+    }
+
+    // Fallback: check for active Codespace
+    const connectors = await getUserConnectors(userId);
+    const ghConn = connectors.find(c => c.connectorId === "github" && c.status === "connected");
+    if (ghConn) {
+      const token = ghConn.accessToken || (ghConn.config as Record<string, string>)?.token;
+      if (token && activeRepo) {
+        try {
+          const csResp = await fetch(`https://api.github.com/user/codespaces`, {
+            headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+            signal: AbortSignal.timeout(5000),
+          });
+          if (csResp.ok) {
+            const data = await csResp.json();
+            const matching = data.codespaces?.find((cs: any) =>
+              cs.repository?.full_name === activeRepo.fullName && cs.state === "Available"
+            );
+            if (matching) {
+              // Codespace URL with port forwarding
+              return {
+                url: `https://${matching.name}-3000.app.github.dev`,
+                type: "codespace",
+                lastDeployed: null,
+              };
+            }
+          }
+        } catch {}
+      }
+    }
+
+    return { url: null, type: "none", lastDeployed: null };
+  }),
+
   openEditor: protectedProcedure.query(async ({ ctx }): Promise<{ url: string | null }> => {
     const userId = ctx.user.id;
     const connectors = await getUserConnectors(userId);

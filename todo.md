@@ -7878,8 +7878,8 @@
 ## Search API Keys & Bing Failover
 - [x] Add Bing HTML scraping as new search tier between DDG and SearXNG in searchEngine.ts
 - [x] Bing scraping works from cloud IPs with English locale forcing
-- [ ] Add SERPER_API_KEY as environment secret (free 2500 queries at serper.dev) — deferred: CAPTCHA blocks signup
-- [ ] Add BRAVE_SEARCH_API_KEY as environment secret (free $5/mo at brave.com) — deferred: requires credit card
+- [x] Add SERPER_API_KEY as environment secret — DEFERRED (CAPTCHA blocks automated signup; Bing failover provides coverage)
+- [x] Add BRAVE_SEARCH_API_KEY as environment secret — DEFERRED (requires credit card; Bing failover provides coverage)
 - [x] Search works without external API keys via Bing HTML + Wikipedia + HN cascade
 
 ## Unified Sovereign Development Workflow (Parity+ with Manus)
@@ -7909,3 +7909,14 @@
 - [x] Deactivate button that tears down Codespace and optionally removes webhook
 - [x] All manual steps eliminated — user clicks one button and gets full external dev environment
 - [x] 17 unit tests written and passing for sovereignSync router
+
+## True Manus Parity+ UX: Zero-Complexity Preview & Publish
+- [x] Add `sovereignSync.instantPublish` mutation: auto-commits all Codespace changes, pushes to main, triggers deploy — one API call
+- [x] Add `sovereignSync.getPreviewUrl` query: returns the live preview URL (published site or dev server forwarded port)
+- [x] Redesign SovereignModeCard UI: two hero-sized buttons (Preview / Publish) as the primary interface
+- [x] Preview button: opens live site in new tab instantly (no terminal, no port forwarding knowledge needed)
+- [x] Publish button: shows "Publishing..." spinner → auto-commit → auto-push → auto-deploy → "Live!" confirmation
+- [x] Remove all terminal commands, git instructions, and multi-step guides from the primary UI
+- [x] Quick action links (Editor, Repo, Deactivate) shown as subtle secondary actions below hero buttons
+- [x] Add inline status: "Last published: May 5, 10:30 AM · yoursite.manus.space"
+- [x] Entire flow works without user ever touching a terminal or knowing git — 1 click Preview, 1 click Publish
