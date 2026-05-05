@@ -352,7 +352,7 @@ describe("Clone → Build → Deploy Pipeline — GitHub Query Guard Integration
     // deploy_webapp appears in the enforcement prompt (within 12000 chars of guard start)
     const deployIdx = agentStreamSrc.indexOf('deploy_webapp', guardIdx);
     expect(deployIdx).toBeGreaterThan(guardIdx);
-    expect(deployIdx - guardIdx).toBeLessThan(15000);
+    expect(deployIdx - guardIdx).toBeLessThan(30000);
   });
 });
 

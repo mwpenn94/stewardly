@@ -281,6 +281,86 @@ async function ddgHtmlSearch(query: string, dateRange?: string): Promise<SearchR
   }
 }
 
+// ── Tier 3.5: Bing HTML Scraping (Free — works from cloud IPs with EN locale) ──
+
+async function bingHtmlSearch(query: string, dateRange?: string): Promise<SearchResult[]> {
+  try {
+    let url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&setmkt=en-US&setlang=en&count=15`;
+    
+    // Date range filtering
+    if (dateRange && dateRange !== "all") {
+      const rangeMap: Record<string, string> = {
+        past_hour: "eh", past_day: "ed", past_week: "ew", past_month: "em", past_year: "ey",
+      };
+      const df = rangeMap[dateRange];
+      if (df) url += `&filters=ex1%3a%22${df}%22`;
+    }
+
+    const resp = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      signal: AbortSignal.timeout(12000),
+    });
+
+    if (!resp.ok) return [];
+    const html = await resp.text();
+
+    // Detect blocks
+    if (html.includes("captcha") || html.includes("unusual traffic") || html.length < 5000) {
+      console.warn("[searchEngine] Bing: blocked or empty response");
+      return [];
+    }
+
+    const results: SearchResult[] = [];
+
+    // Bing encodes URLs as base64 in &u=a1<BASE64>& parameter within bing.com/ck/a redirect links
+    const regex = /<h2[^>]*><a[^>]+href="[^"]*&amp;u=a1([^&"]+)[^"]*"[^>]*>([\s\S]*?)<\/a><\/h2>/g;
+    let m;
+    while ((m = regex.exec(html)) !== null && results.length < 15) {
+      try {
+        const decoded = Buffer.from(m[1], "base64").toString("utf8");
+        const title = m[2].replace(/<[^>]+>/g, "").trim();
+        if (decoded.startsWith("http") && title && !isAdUrl(decoded)) {
+          results.push({
+            title,
+            url: decoded,
+            snippet: "",
+            source: "direct" as const, // Use "direct" since we don't have a "bing" source type
+            score: 82 - results.length * 4,
+          });
+        }
+      } catch {}
+    }
+
+    // Try to extract snippets from b_lineclamp paragraphs
+    const snippetRegex = /<p class="[^"]*b_lineclamp[^"]*"[^>]*>([\s\S]*?)<\/p>/g;
+    let si = 0;
+    let sm;
+    while ((sm = snippetRegex.exec(html)) !== null && si < results.length) {
+      const text = sm[1]
+        .replace(/<[^>]+>/g, "")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&#0183;&#32;/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&#x27;/g, "'")
+        .trim();
+      if (text.length > 20 && results[si]) {
+        results[si].snippet = text;
+        si++;
+      }
+    }
+
+    return results;
+  } catch (err: any) {
+    console.warn(`[searchEngine] Bing HTML search failed: ${err.message}`);
+    return [];
+  }
+}
+
 // ── Tier 4: SearXNG (Free Unlimited — often rate-limited from cloud IPs) ────
 
 async function searxngJsonSearch(query: string, instanceUrl: string, dateRange?: string): Promise<SearchResult[]> {
@@ -624,9 +704,9 @@ export async function executeSearch(options: SearchOptions): Promise<SearchRespo
     }
   }
 
-  // ── Free Tier: Try scraping-based services (unreliable from cloud IPs) ──
+  // ── Free Tier: Try scraping-based services ──
 
-  // Tier 3: DuckDuckGo HTML
+  // Tier 3: DuckDuckGo HTML (often blocked from cloud IPs)
   if (!primaryResults.length) {
     console.log(`[searchEngine] Trying Tier 3: DuckDuckGo HTML...`);
     const results = await ddgHtmlSearch(query, dateRange);
@@ -637,11 +717,26 @@ export async function executeSearch(options: SearchOptions): Promise<SearchRespo
       primaryEngine = "DuckDuckGo";
       console.log(`[searchEngine] ✓ DDG: ${results.length} results`);
     } else {
-      warnings.push("DuckDuckGo: blocked (CAPTCHA) — upgrade to a free API key for reliable results");
+      warnings.push("DuckDuckGo: blocked (CAPTCHA)");
     }
   }
 
-  // Tier 4: SearXNG
+  // Tier 3.5: Bing HTML Scraping (works from cloud IPs with EN locale)
+  if (!primaryResults.length) {
+    console.log(`[searchEngine] Trying Tier 3.5: Bing HTML...`);
+    const results = await bingHtmlSearch(query, dateRange);
+    if (results.length > 0) {
+      primaryResults = results;
+      enginesUsed.push("bing");
+      activeTier = "standard";
+      primaryEngine = "Bing";
+      console.log(`[searchEngine] ✓ Bing: ${results.length} results`);
+    } else {
+      warnings.push("Bing: no results or blocked");
+    }
+  }
+
+  // Tier 4: SearXNG (often rate-limited from cloud IPs)
   if (!primaryResults.length) {
     console.log(`[searchEngine] Trying Tier 4: SearXNG...`);
     const results = await searxngMultiInstance(query, dateRange, searxngUrl);

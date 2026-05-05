@@ -46,7 +46,7 @@ describe("Agent Tools", () => {
 
   it("AGENT_TOOLS defines the expected tool set", async () => {
     const { AGENT_TOOLS } = await import("./agentTools");
-    expect(AGENT_TOOLS).toHaveLength(42);
+    expect(AGENT_TOOLS).toHaveLength(44);
     const toolNames = AGENT_TOOLS.map((t) => t.function.name);
     expect(toolNames).toContain("web_search");
     expect(toolNames).toContain("read_webpage");
@@ -95,6 +95,9 @@ describe("Agent Tools", () => {
     // IOV convergence: store_submit + code_sign
     expect(toolNames).toContain("store_submit");
     expect(toolNames).toContain("code_sign");
+    // Bing search failover + data lookup
+    expect(toolNames).toContain("live_preview");
+    expect(toolNames).toContain("data_lookup");
     // map_result is a JSON schema name inside parallel_map, not a standalone tool
   });
 

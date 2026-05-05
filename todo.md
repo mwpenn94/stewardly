@@ -7874,3 +7874,23 @@
 - [x] Add Edge TTS as free voice synthesis option (tieredVoice.ts)
 - [x] IOV: Verify tier cascade works for search (35 tests passing)
 - [x] IOV: Verify upgrade flow works (user adds API key → tier upgrades in UI)
+
+## Search API Keys & Bing Failover
+- [x] Add Bing HTML scraping as new search tier between DDG and SearXNG in searchEngine.ts
+- [x] Bing scraping works from cloud IPs with English locale forcing
+- [ ] Add SERPER_API_KEY as environment secret (free 2500 queries at serper.dev) — deferred: CAPTCHA blocks signup
+- [ ] Add BRAVE_SEARCH_API_KEY as environment secret (free $5/mo at brave.com) — deferred: requires credit card
+- [x] Search works without external API keys via Bing HTML + Wikipedia + HN cascade
+
+## Unified Sovereign Development Workflow (Parity+ with Manus)
+- [x] Implement unified SovereignDevWorkflow component in Settings → Development tab
+- [x] Include tabbed phases: Overview, One-Time Setup, Develop & Preview, Push & Publish, Advanced
+- [x] Show pipeline visualization: Connect → Develop → Push → Live
+- [x] Include parity matrix comparing Manus vs Sovereign workflow (13 capabilities)
+- [x] Include Codespaces preview instructions as part of unified flow
+- [x] Include external push → auto-publish instructions as part of unified flow
+- [x] Include .devcontainer setup, CI/CD, and team collaboration as advanced features
+- [x] Include troubleshooting guide for common issues
+- [x] Include free tier limits information
+- [x] Update test assertions to reflect new tool count (42 → 44)
+- [x] All 8 previously failing tests now pass (295 tests, 0 failures)

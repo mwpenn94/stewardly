@@ -754,9 +754,9 @@ describe("Pass 38.5: github_ops tool", () => {
 // ═══════════════════════════════════════════════════════════════
 
 describe("Pass 38: Tool Registration", () => {
-  it("all 42 tools are registered in AGENT_TOOLS", async () => {
+  it("all 44 tools are registered in AGENT_TOOLS", async () => {
     const { AGENT_TOOLS } = await import("./agentTools");
-    expect(AGENT_TOOLS).toHaveLength(42);
+    expect(AGENT_TOOLS).toHaveLength(44);
     
     const toolNames = AGENT_TOOLS.map((t: any) => t.function.name);
     
