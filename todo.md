@@ -7935,3 +7935,8 @@
 - [x] Integrate card and drawer into Settings → Development, replacing current hero buttons
 - [x] Card shows live iframe preview of the published site
 - [x] Publish triggers drawer with live progress feedback
+
+## Fix Card Buttons to Match Manus Exactly
+- [x] Change from two static buttons to state-dependent: "Dashboard" + "Publish" before deploy, "Dashboard" + "Preview" after deploy
+- [x] Make card thumbnail clickable (opens preview directly, with hover overlay)
+- [x] Remove redundant features that don't align with Manus simplicity

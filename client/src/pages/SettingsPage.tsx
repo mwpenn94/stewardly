@@ -2430,21 +2430,30 @@ function SovereignModeCard() {
     <div className="mt-8 pt-6 border-t border-border">
       {/* Manus-Style Project Card */}
       <div className="w-full rounded-2xl border border-border bg-card overflow-hidden shadow-lg shadow-black/10">
-        {/* Live Preview Thumbnail (iframe) */}
-        <div className="relative w-full aspect-[16/9] bg-muted/20 overflow-hidden">
+        {/* Live Preview Thumbnail (clickable to open preview) */}
+        <div
+          className="relative w-full aspect-[16/9] bg-muted/20 overflow-hidden cursor-pointer group/thumb"
+          onClick={() => { if (preview?.url) window.open(preview.url, "_blank"); }}
+        >
           {iframeSrc ? (
-            <iframe
-              src={iframeSrc}
-              className="w-full h-full border-0 pointer-events-none"
-              sandbox="allow-scripts allow-same-origin"
-              loading="lazy"
-              title="Site preview"
-            />
+            <>
+              <iframe
+                src={iframeSrc}
+                className="w-full h-full border-0 pointer-events-none"
+                sandbox="allow-scripts allow-same-origin"
+                loading="lazy"
+                title="Site preview"
+              />
+              {/* Hover overlay */}
+              <div className="absolute inset-0 bg-black/0 group-hover/thumb:bg-black/10 transition-colors flex items-center justify-center">
+                <ExternalLink className="w-6 h-6 text-white opacity-0 group-hover/thumb:opacity-80 transition-opacity drop-shadow-lg" />
+              </div>
+            </>
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
               <Globe className="w-8 h-8 text-muted-foreground/30" />
               <p className="text-xs text-muted-foreground/50">
-                {isReady ? "Click Preview to see your site" : "Connect GitHub to get started"}
+                {isReady ? "Publish to see your site here" : "Connect GitHub to get started"}
               </p>
             </div>
           )}
@@ -2521,36 +2530,51 @@ function SovereignModeCard() {
           </div>
         </div>
 
-        {/* Two Action Buttons — Matching Manus Card Exactly */}
+        {/* Action Buttons — State-dependent like Manus */}
         <div className="px-4 pb-4 pt-2 grid grid-cols-2 gap-2.5">
+          {/* Left button: Dashboard (always) */}
           <button
-            onClick={handlePublish}
-            disabled={isPublishing || isActivating || !isReady}
+            onClick={() => {
+              // Navigate to the webapp project dashboard if available
+              if (status?.repo.fullName) {
+                window.open(`https://github.com/${status.repo.fullName}`, "_blank");
+              }
+            }}
+            disabled={!isReady}
             className={cn(
               "py-2.5 rounded-xl text-sm font-semibold transition-colors border",
-              isPublishing
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-400 cursor-wait"
-                : isReady
-                  ? "bg-muted/80 border-border text-foreground hover:bg-muted"
-                  : "bg-muted/30 border-border text-muted-foreground cursor-not-allowed opacity-60"
+              isReady
+                ? "bg-muted/80 border-border text-foreground hover:bg-muted"
+                : "bg-muted/30 border-border text-muted-foreground cursor-not-allowed opacity-60"
             )}
           >
-            {isPublishing ? "Publishing..." : "Publish"}
+            Dashboard
           </button>
-          <button
-            onClick={handlePreview}
-            disabled={isActivating}
-            className={cn(
-              "py-2.5 rounded-xl text-sm font-semibold transition-colors border",
-              preview?.url
-                ? "bg-card border-border text-foreground hover:bg-accent"
-                : isReady
-                  ? "bg-card border-border text-foreground hover:bg-accent"
-                  : "bg-muted/30 border-border text-muted-foreground cursor-not-allowed opacity-60"
-            )}
-          >
-            Preview
-          </button>
+
+          {/* Right button: Publish (before deploy) or Preview (after deploy) */}
+          {preview?.url ? (
+            <button
+              onClick={() => window.open(preview.url!, "_blank")}
+              className="py-2.5 rounded-xl text-sm font-semibold transition-colors border bg-card border-border text-foreground hover:bg-accent"
+            >
+              Preview
+            </button>
+          ) : (
+            <button
+              onClick={handlePublish}
+              disabled={isPublishing || isActivating || !isReady}
+              className={cn(
+                "py-2.5 rounded-xl text-sm font-semibold transition-colors border",
+                isPublishing
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400 cursor-wait"
+                  : isReady
+                    ? "bg-card border-border text-foreground hover:bg-accent"
+                    : "bg-muted/30 border-border text-muted-foreground cursor-not-allowed opacity-60"
+              )}
+            >
+              {isPublishing ? "Publishing..." : "Publish"}
+            </button>
+          )}
         </div>
       </div>
 
