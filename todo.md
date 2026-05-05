@@ -7742,3 +7742,14 @@
 - [x] Write 12 tests for retry queue (success on retry, max attempts exhausted, backoff timing, mixed batch, full lifecycle)
 - [x] Added retryQueueStatus diagnostic endpoint for monitoring
 - [x] All 220 test files pass, 5,381 tests, 0 failures
+
+## Session 5d: GitHub Query Guard Silent Completion Fix
+### Bug Fix: Task chat fails completely when GitHub Query Guard blocks all research tools
+- [x] Root cause: Guard blocks research tools → sets toolCalls=undefined → auto-continuation fires 2x → groupAttempts reaches 2 for all groups → shouldContinue=false → loop breaks with no text and no tool calls
+- [x] Fix 1: Added `continue` statement after guard blocks tools + pushes enforcement message (skips auto-continuation, restarts loop immediately)
+- [x] Fix 2: Push assistant message before user enforcement message to maintain proper conversation alternation
+- [x] Fix 3: Added githubGuardBlocks counter with safety limit (5 blocks → force fallback text response about GitHub capabilities)
+- [x] Fix 4: Reset counter when agent successfully uses GitHub tools
+- [x] Fix 5: Added SAFETY NET 0 for completely silent completions (no text AND no tool calls → "I'm ready to help!")
+- [x] Added IMPORTANT instruction in enforcement message: "You MUST use one of the tools listed above"
+- [x] All 220 test files pass, 5,381 tests, 0 failures

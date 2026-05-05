@@ -1224,6 +1224,7 @@ will seamlessly continue you with full context. Write as extensively as the task
     let cloneBudgetExhausted = false; // When true, git_operation(clone) is blocked
     const successfulCloneUrls = new Set<string>(); // Session 56 Fix: Track URLs that cloned successfully to prevent re-cloning
     let githubOpsCompleted = false; // Tracks whether github_ops has been called — guard deactivates after
+    let githubGuardBlocks = 0; // Counter for consecutive guard blocks to prevent infinite loops
 
     // PC4 FIX: Research budget for Limitless mode — after N consecutive research tools
     // without producing a deliverable, nudge the agent to synthesize and deliver
@@ -1615,6 +1616,7 @@ If git_operation(clone) fails:
         });
         if (hasGitHubCall) {
           githubOpsCompleted = true;
+          githubGuardBlocks = 0; // Reset block counter since agent is now using correct tools
           console.log(`[Agent] GITHUB QUERY GUARD: GitHub/deploy tool detected on turn ${turn}`);
           // Strip research calls even when mixed with github tools
           if (hasResearchCall) {
@@ -1625,14 +1627,26 @@ If git_operation(clone) fails:
             });
           }
         } else if (hasResearchCall) {
-          console.log(`[Agent] GITHUB QUERY GUARD: Blocking ${toolCalls.length} research tool call(s) on turn ${turn} — research is NEVER allowed for repo queries`);
+          githubGuardBlocks++;
+          console.log(`[Agent] GITHUB QUERY GUARD: Blocking ${toolCalls.length} research tool call(s) on turn ${turn} — research is NEVER allowed for repo queries (block #${githubGuardBlocks})`);
           // Strip ALL research calls
           const filtered = toolCalls.filter((tc: any) => {
             const name = tc.function?.name || tc.name || "";
             return !BLOCKED_RESEARCH_TOOLS.includes(name);
           });
           if (filtered.length === 0) {
+            // Safety: if the LLM keeps trying research after 5 blocks, force a text-only response
+            if (githubGuardBlocks >= 5) {
+              console.log(`[Agent] GITHUB QUERY GUARD: ${githubGuardBlocks} consecutive blocks — forcing text-only response about GitHub capabilities`);
+              const fallbackText = `I can help you work with your connected GitHub repository (mwpenn94/manus-next-app). Here's what I can do:\n\n**GitHub Operations (API-based):**\n- **github_ops**: Check repository status, manage branches, create and merge pull requests, assist with releases, and generate CI/CD workflows\n- **github_edit**: Make targeted code changes, fixes, or additions directly to your repository via the GitHub API\n- **github_assess**: Deeply assess your repository's code quality, security, performance, and provide structured reports\n\n**Development Lifecycle:**\n- **git_operation(clone)**: Clone your repo for a fresh working copy\n- **install_deps**: Install project dependencies\n- **deploy_webapp**: Build and deploy a live preview\n- **run_command**: Run any command (build, test, lint, etc.)\n\nWould you like me to demonstrate any of these capabilities?`;
+              sendSSE(safeWrite, { delta: fallbackText });
+              finalContent = fallbackText;
+              break;
+            }
             toolCalls = undefined;
+            // Push the assistant's (blocked) response to maintain conversation flow
+            const blockedAssistantContent = typeof assistantMessage?.content === "string" ? assistantMessage.content : "";
+            conversation.push({ role: "assistant", content: blockedAssistantContent } as any);
             conversation.push({
               role: "user",
               content: `SYSTEM ENFORCEMENT: Research tools are PERMANENTLY BLOCKED for this query about your connected GitHub repo.
@@ -1656,8 +1670,13 @@ SELF-REPO AWARENESS: This repo already has its own package.json with build scrip
 - ALWAYS read the existing package.json first (run_command("cat package.json"))
 - Use the EXISTING build scripts — do NOT overwrite them
 - If a build script is missing, ADD it with edit_file, don't replace the whole file
-- Never use create_file on package.json when it already exists`,
+- Never use create_file on package.json when it already exists
+
+IMPORTANT: You MUST use one of the tools listed above (github_ops, git_operation, run_command, etc.) on your next response. Do NOT produce a text-only response — take action immediately.`,
             } as any);
+            // Skip the rest of this turn's processing (auto-continuation, scope-creep, etc.)
+            // and immediately restart the loop so the LLM gets a fresh chance to use correct tools
+            continue;
           } else {
             toolCalls = filtered;
           }
@@ -2952,6 +2971,14 @@ Do NOT use browser_action to test it — present confidently since the deploy su
         const { updateTelemetryOutcome } = await import("./db");
         await updateTelemetryOutcome(pendingTelemetryId, "resolved", turn - telemetryTurnAtIntervention);
       } catch { /* telemetry is non-critical */ }
+    }
+
+    // SAFETY NET 0: If the agent loop ended with NO text AND NO tool calls (completely silent), force a response
+    if (!finalContent.trim() && completedToolCalls === 0) {
+      console.log(`[Agent] SILENT COMPLETION: No text and no tool calls after ${turn} turns — forcing fallback response`);
+      const silentFallback = "I'm ready to help! What would you like me to do?";
+      sendSSE(safeWrite, { delta: silentFallback });
+      finalContent = silentFallback;
     }
 
     // SAFETY NET: If the agent loop ended with tool calls but no visible text, force a final text response
