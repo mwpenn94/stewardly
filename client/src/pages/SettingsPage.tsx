@@ -65,6 +65,7 @@ import DataIntegrationMonitor from "@/components/DataIntegrationMonitor";
 import ProcessImprovementTracker from "@/components/ProcessImprovementTracker";
 import ScheduledTaskManager from "@/components/ScheduledTaskManager";
 import ConnectorsCRUDPanel from "@/components/ConnectorsCRUDPanel";
+import CapabilityTiersPanel from "@/components/CapabilityTiersPanel";
 
 type SettingsTab = "account" | "general" | "notifications" | "secrets" | "capabilities" | "connectors" | "bridge" | "cloud_browser" | "data_controls" | "feedback" | "voice" | "knowledge_base" | "personalization" | "self_improvement" | "data_integration" | "process_improvement" | "scheduled_tasks" | "development";
 
@@ -2071,6 +2072,9 @@ function DevelopmentSettings() {
 
       {/* Search Engine Configuration */}
       <SearchEngineConfig />
+
+      {/* Capability Tiers Overview */}
+      <CapabilityTiersPanel />
     </motion.div>
   );
 }
@@ -2086,84 +2090,203 @@ function SearchEngineConfig() {
     onError: (err: any) => { toast.error(err.message); },
   });
 
-  const [searxngUrl, setSearxngUrl] = useState("");
+  const [serperApiKey, setSerperApiKey] = useState("");
   const [braveApiKey, setBraveApiKey] = useState("");
+  const [tavilyApiKey, setTavilyApiKey] = useState("");
+  const [googleCseId, setGoogleCseId] = useState("");
+  const [googleCseKey, setGoogleCseKey] = useState("");
+  const [searxngUrl, setSearxngUrl] = useState("");
 
   useEffect(() => {
     if (searchConfigQuery.data) {
-      setSearxngUrl(searchConfigQuery.data.searxngUrl || "");
+      setSerperApiKey(searchConfigQuery.data.serperApiKey || "");
       setBraveApiKey(searchConfigQuery.data.braveApiKey || "");
+      setTavilyApiKey(searchConfigQuery.data.tavilyApiKey || "");
+      setGoogleCseId(searchConfigQuery.data.googleCseId || "");
+      setGoogleCseKey(searchConfigQuery.data.googleCseKey || "");
+      setSearxngUrl(searchConfigQuery.data.searxngUrl || "");
     }
   }, [searchConfigQuery.data]);
+
+  const configuredCount = [serperApiKey, braveApiKey, tavilyApiKey, googleCseId && googleCseKey, searxngUrl].filter(Boolean).length;
 
   return (
     <div className="mt-8 pt-6 border-t border-border">
       <h3 className="text-lg font-semibold text-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>
-        Search Engines
+        Search Engines (Tiered Cascade)
       </h3>
       <p className="text-sm text-muted-foreground mb-4">
-        Configure additional search engines for higher-quality results. DuckDuckGo + Wikipedia are always active (free, unlimited).
+        Configure search APIs for reliable, high-quality results. The system tries each tier in order and stops at the first that returns results. Wikipedia + Hacker News always run as supplementary sources.
       </p>
 
-      <div className="space-y-4">
-        {/* SearXNG */}
+      <div className="space-y-3">
+        {/* Tier 0: Serper.dev */}
         <div className="p-4 rounded-xl border border-border bg-card">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-lg bg-purple-500/10 flex items-center justify-center">
-              <svg className="w-3.5 h-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <span className="text-xs font-bold text-blue-400">G</span>
             </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">SearXNG Instance</p>
-              <p className="text-xs text-muted-foreground">Meta-search engine aggregating Google, Bing, DuckDuckGo, and more</p>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-foreground">Serper.dev</p>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-medium">TIER 0 — BEST</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Actual Google results — 2,500 free credits on signup</p>
             </div>
           </div>
           <input
-            type="text"
-            value={searxngUrl}
-            onChange={(e) => setSearxngUrl(e.target.value)}
-            placeholder="https://searx.example.com (leave blank to skip)"
+            type="password"
+            value={serperApiKey}
+            onChange={(e) => setSerperApiKey(e.target.value)}
+            placeholder="Enter Serper API key"
             className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
           />
           <p className="text-[10px] text-muted-foreground mt-1">
-            Self-host or use a public instance. Must have JSON format enabled. <a href="https://searx.space" target="_blank" rel="noopener" className="text-primary hover:underline">Find instances</a>
+            Get free key at <a href="https://serper.dev" target="_blank" rel="noopener" className="text-primary hover:underline">serper.dev</a> — 2,500 free queries, then $0.001/query
           </p>
         </div>
 
-        {/* Brave Search */}
+        {/* Tier 1: Brave Search */}
         <div className="p-4 rounded-xl border border-border bg-card">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-7 h-7 rounded-lg bg-orange-500/10 flex items-center justify-center">
               <svg className="w-3.5 h-3.5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
             </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">Brave Search API</p>
-              <p className="text-xs text-muted-foreground">High-quality independent search index — free 2,000 queries/month</p>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-foreground">Brave Search API</p>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 font-medium">TIER 1</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Independent search index — $5 free credits/month</p>
             </div>
           </div>
           <input
             type="password"
             value={braveApiKey}
             onChange={(e) => setBraveApiKey(e.target.value)}
-            placeholder="BSA-xxxxxxxxxxxxxxxx (leave blank to skip)"
+            placeholder="BSA-xxxxxxxxxxxxxxxx"
             className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
           />
           <p className="text-[10px] text-muted-foreground mt-1">
-            Get a free API key at <a href="https://brave.com/search/api/" target="_blank" rel="noopener" className="text-primary hover:underline">brave.com/search/api</a> (2,000 queries/month free)
+            Get key at <a href="https://brave.com/search/api/" target="_blank" rel="noopener" className="text-primary hover:underline">brave.com/search/api</a> — $5 free credits/month (~1000 queries)
+          </p>
+        </div>
+
+        {/* Tier 2: Tavily */}
+        <div className="p-4 rounded-xl border border-border bg-card">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+              <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-foreground">Tavily</p>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-medium">TIER 2</span>
+              </div>
+              <p className="text-xs text-muted-foreground">AI-optimized search — 1,000 free credits/month</p>
+            </div>
+          </div>
+          <input
+            type="password"
+            value={tavilyApiKey}
+            onChange={(e) => setTavilyApiKey(e.target.value)}
+            placeholder="tvly-xxxxxxxxxxxxxxxx"
+            className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Get key at <a href="https://tavily.com" target="_blank" rel="noopener" className="text-primary hover:underline">tavily.com</a> — 1,000 free API credits/month, no CC required
+          </p>
+        </div>
+
+        {/* Tier U: Google CSE */}
+        <div className="p-4 rounded-xl border border-border bg-card">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 rounded-lg bg-red-500/10 flex items-center justify-center">
+              <span className="text-xs font-bold text-red-400">G</span>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-foreground">Google Custom Search</p>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 font-medium">UPGRADE</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Direct Google results — 100 free queries/day</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={googleCseId}
+              onChange={(e) => setGoogleCseId(e.target.value)}
+              placeholder="Custom Search Engine ID"
+              className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+            />
+            <input
+              type="password"
+              value={googleCseKey}
+              onChange={(e) => setGoogleCseKey(e.target.value)}
+              placeholder="Google API Key"
+              className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Set up at <a href="https://programmablesearchengine.google.com" target="_blank" rel="noopener" className="text-primary hover:underline">Google CSE</a> + <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" className="text-primary hover:underline">API Console</a> — 100 free/day
+          </p>
+        </div>
+
+        {/* SearXNG */}
+        <div className="p-4 rounded-xl border border-border bg-card">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 rounded-lg bg-purple-500/10 flex items-center justify-center">
+              <svg className="w-3.5 h-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-foreground">SearXNG (Self-Hosted)</p>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 font-medium">UNLIMITED</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Self-hosted meta-search — unlimited, aggregates Google/Bing/DDG</p>
+            </div>
+          </div>
+          <input
+            type="text"
+            value={searxngUrl}
+            onChange={(e) => setSearxngUrl(e.target.value)}
+            placeholder="https://searx.example.com"
+            className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Self-host with Docker: <code className="text-[9px] bg-muted px-1 rounded">docker run -p 8080:8080 searxng/searxng</code> — <a href="https://docs.searxng.org" target="_blank" rel="noopener" className="text-primary hover:underline">Docs</a>
           </p>
         </div>
 
         {/* Active Engines Summary */}
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">DuckDuckGo (always active)</span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">Wikipedia (always active)</span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">Hacker News (tech queries)</span>
-          {searxngUrl && <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">SearXNG (configured)</span>}
-          {braveApiKey && <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">Brave Search (configured)</span>}
+        <div className="p-3 rounded-lg bg-muted/30 border border-border">
+          <p className="text-xs font-medium text-muted-foreground mb-2">Active Search Cascade ({configuredCount} premium + 3 free):</p>
+          <div className="flex flex-wrap gap-1.5">
+            {serperApiKey && <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">1. Serper (Google)</span>}
+            {braveApiKey && <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">{serperApiKey ? '2' : '1'}. Brave</span>}
+            {tavilyApiKey && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Tavily</span>}
+            {googleCseId && googleCseKey && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">Google CSE</span>}
+            {searxngUrl && <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">SearXNG</span>}
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">DuckDuckGo (free)</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">Wikipedia (free)</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">HN (tech, free)</span>
+          </div>
+          {configuredCount === 0 && (
+            <p className="text-[10px] text-amber-400 mt-2">⚠️ No premium search APIs configured. Results may be limited from cloud servers. Add at least one API key above for reliable search.</p>
+          )}
         </div>
       </div>
 
       <button
-        onClick={() => saveSearchConfig.mutate({ searxngUrl: searxngUrl || undefined, braveApiKey: braveApiKey || undefined })}
+        onClick={() => saveSearchConfig.mutate({
+          serperApiKey: serperApiKey || undefined,
+          braveApiKey: braveApiKey || undefined,
+          tavilyApiKey: tavilyApiKey || undefined,
+          googleCseId: googleCseId || undefined,
+          googleCseKey: googleCseKey || undefined,
+          searxngUrl: searxngUrl || undefined,
+        })}
         disabled={saveSearchConfig.isPending}
         className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
       >

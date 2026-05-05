@@ -7850,3 +7850,27 @@
 - [x] Multi-step research: Agent should iterate search→browse→search (system prompt planning section added)
 - [x] Source validation: Increase page content limit from 4000 to 12000+ chars (done: 12000 for search, 20000 for read_webpage)
 - [x] Data API layer: Expose Forge APIs as structured data sources via data_lookup tool
+
+## Tiered Capability Architecture (Quality-First Degradation with Upgrade Paths)
+- [x] Design capability tier schema: track usage quotas per tier per user per month
+- [x] Create capabilityTiers.ts service: unified tier resolution for all capabilities
+- [x] Search tiers: Serper(2.5k free) → Brave(free $5/mo) → Tavily(1k free/mo) → Google CSE(100/day) → SearXNG → DDG → Wikipedia
+- [x] Search upgrades: Serper.dev, Google Custom Search, Tavily (configurable in Settings)
+- [x] Image gen tiers: Forge API(built-in) → Pollinations.ai(free) → placeholder
+- [x] Image gen upgrades: DALL-E 3, Stability AI (paid, configurable)
+- [x] Voice/TTS tiers: Forge Whisper(built-in) → Edge TTS(free) → browser SpeechSynthesis
+- [x] Voice upgrades: ElevenLabs, OpenAI TTS (paid, configurable)
+- [x] Browser tiers: cloud_browser(built-in) → Jina Reader(free) → Direct fetch
+- [x] Browser upgrades: Browserbase, Apify (paid, configurable)
+- [x] Research tiers: deep_research(built-in) → parallel search+browse → single search
+- [x] Research upgrades: Perplexity API, Tavily extract (paid, configurable)
+- [x] LLM tiers: Forge LLM(built-in) → free models via OpenRouter → local inference
+- [x] LLM upgrades: GPT-4o, Claude, Gemini (paid API keys, configurable)
+- [x] Build quota tracking in capabilityTiers.ts (usage counts per domain with monthly limits)
+- [x] Build Settings UI: CapabilityTiersPanel with usage meters and upgrade CTAs
+- [x] Auto-degrade when quota exhausted with user notification (tier resolution engine)
+- [x] SearXNG integration: both JSON and HTML parsing for reliability
+- [x] Add Pollinations.ai as free image generation fallback (tieredImageGen.ts)
+- [x] Add Edge TTS as free voice synthesis option (tieredVoice.ts)
+- [x] IOV: Verify tier cascade works for search (35 tests passing)
+- [x] IOV: Verify upgrade flow works (user adds API key → tier upgrades in UI)

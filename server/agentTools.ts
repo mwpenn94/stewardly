@@ -1841,9 +1841,13 @@ async function executeWebSearch(args: { query: string; date_range?: string }, co
     // Import the new search engine service
     const { executeSearch, formatSearchResults } = await import("./services/searchEngine");
 
-    // Get user's search configuration (SearXNG URL, Brave API key) if available
+    // Get user's search configuration from preferences
     let searxngUrl: string | undefined;
     let braveApiKey: string | undefined;
+    let serperApiKey: string | undefined;
+    let tavilyApiKey: string | undefined;
+    let googleCseId: string | undefined;
+    let googleCseKey: string | undefined;
     if (context?.userId) {
       try {
         const { getUserPreferences } = await import("./db");
@@ -1852,6 +1856,10 @@ async function executeWebSearch(args: { query: string; date_range?: string }, co
         if (searchConfig) {
           searxngUrl = searchConfig.searxngUrl || undefined;
           braveApiKey = searchConfig.braveApiKey || undefined;
+          serperApiKey = searchConfig.serperApiKey || undefined;
+          tavilyApiKey = searchConfig.tavilyApiKey || undefined;
+          googleCseId = searchConfig.googleCseId || undefined;
+          googleCseKey = searchConfig.googleCseKey || undefined;
         }
       } catch {
         // Non-fatal: proceed without user config
@@ -1861,14 +1869,22 @@ async function executeWebSearch(args: { query: string; date_range?: string }, co
     // Also check environment variables as fallback
     if (!braveApiKey) braveApiKey = process.env.BRAVE_SEARCH_API_KEY || undefined;
     if (!searxngUrl) searxngUrl = process.env.SEARXNG_INSTANCE_URL || undefined;
+    if (!serperApiKey) serperApiKey = process.env.SERPER_API_KEY || undefined;
+    if (!tavilyApiKey) tavilyApiKey = process.env.TAVILY_API_KEY || undefined;
+    if (!googleCseId) googleCseId = process.env.GOOGLE_CSE_ID || undefined;
+    if (!googleCseKey) googleCseKey = process.env.GOOGLE_CSE_KEY || undefined;
 
-    // Execute the aggregate search
+    // Execute the aggregate search with tiered cascade
     const response = await executeSearch({
       query,
       dateRange: (args.date_range as any) || "all",
       numResults: 10,
       searxngUrl,
       braveApiKey,
+      serperApiKey,
+      tavilyApiKey,
+      googleCseId,
+      googleCseKey,
     });
 
     // If we got real results, format and return them

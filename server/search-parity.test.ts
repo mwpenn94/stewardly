@@ -1,6 +1,15 @@
 /**
  * Search Parity Tests — Validates the multi-engine search and data_lookup tools
  * achieve parity+ with Manus's info_search_web behavior.
+ * 
+ * EXECUTION ORDER in executeSearch:
+ *   1. Brave (if braveApiKey) — 1 fetch call
+ *   2. SearXNG multi-instance — up to 2 calls per instance (JSON then HTML)
+ *      - If custom URL: tries JSON, then HTML on that URL
+ *      - If no custom URL: tries up to 3 public instances (JSON + HTML each)
+ *   3. DDG HTML — 1 fetch call
+ *   4. Wikipedia — 1 fetch call
+ *   5. Hacker News (if tech query) — 1 fetch call
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -11,6 +20,7 @@ vi.stubGlobal("fetch", mockFetch);
 describe("Search Engine Service", () => {
   beforeEach(() => {
     mockFetch.mockReset();
+    vi.resetModules(); // Reset module cache so each test gets fresh import
   });
 
   it("should export executeSearch and formatSearchResults", async () => {
@@ -22,20 +32,25 @@ describe("Search Engine Service", () => {
   });
 
   it("should return structured SearchResponse with correct fields", async () => {
-    // Mock DDG HTML response with real-looking results
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      text: async () => `
-        <div class="result">
-          <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Farticle">Example Article Title</a>
-          <td class="result__snippet">This is a snippet about the article content.</td>
-        </div>
-      `,
-    });
-    // Mock Wikipedia
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ query: { search: [] } }),
+    // Order: SearXNG public instances (JSON+HTML x3) → DDG → Wikipedia
+    // Use mockImplementation to handle all calls
+    mockFetch.mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.includes("html.duckduckgo.com")) {
+        return {
+          ok: true,
+          text: async () => `
+            <div class="result">
+              <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Farticle">Example Article Title</a>
+              <td class="result__snippet">This is a snippet about the article content.</td>
+            </div>
+          `,
+        };
+      }
+      if (typeof url === "string" && url.includes("wikipedia.org")) {
+        return { ok: true, json: async () => ({ query: { search: [] } }) };
+      }
+      // SearXNG public instances — return empty to simulate unavailable
+      return { ok: false, status: 403 };
     });
 
     const { executeSearch } = await import("./services/searchEngine");
@@ -99,44 +114,53 @@ describe("Search Engine Service", () => {
   });
 
   it("should handle date_range parameter for time-filtered searches", async () => {
-    // Mock DDG with date range
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      text: async () => `<div class="result"><a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fnews.com%2Frecent">Recent News</a><td class="result__snippet">Latest update</td></div>`,
-    });
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ query: { search: [] } }),
+    // Track all fetch calls to verify date parameter
+    mockFetch.mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.includes("html.duckduckgo.com")) {
+        return {
+          ok: true,
+          text: async () => `<div class="result"><a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fnews.com%2Frecent">Recent News</a><td class="result__snippet">Latest update</td></div>`,
+        };
+      }
+      if (typeof url === "string" && url.includes("wikipedia.org")) {
+        return { ok: true, json: async () => ({ query: { search: [] } }) };
+      }
+      return { ok: false, status: 403 };
     });
 
     const { executeSearch } = await import("./services/searchEngine");
     const response = await executeSearch({ query: "AI news", dateRange: "past_week" });
 
-    // Should have called fetch with date parameter
+    // Should have called fetch with date parameter on DDG
     expect(mockFetch).toHaveBeenCalled();
-    const firstCallUrl = mockFetch.mock.calls[0][0];
-    expect(firstCallUrl).toContain("df=w"); // DDG week filter
+    const ddgCall = mockFetch.mock.calls.find((c: any) => 
+      typeof c[0] === "string" && c[0].includes("html.duckduckgo.com")
+    );
+    expect(ddgCall).toBeDefined();
+    expect(ddgCall![0]).toContain("df=w"); // DDG week filter
   });
 
-  it("should use SearXNG when configured", async () => {
-    // Mock DDG
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      text: async () => `<div></div>`,
-    });
-    // Mock SearXNG
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        results: [
-          { title: "SearXNG Result", url: "https://searx-result.com", content: "From SearXNG" },
-        ],
-      }),
-    });
-    // Mock Wikipedia
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ query: { search: [] } }),
+  it("should use SearXNG when configured with custom URL", async () => {
+    // Order: SearXNG custom URL (JSON) → DDG → Wikipedia
+    mockFetch.mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.includes("my-searxng.example.com") && url.includes("format=json")) {
+        return {
+          ok: true,
+          json: async () => ({
+            results: [
+              { title: "SearXNG Result", url: "https://searx-result.com", content: "From SearXNG" },
+            ],
+          }),
+        };
+      }
+      if (typeof url === "string" && url.includes("html.duckduckgo.com")) {
+        return { ok: true, text: async () => `<div></div>` };
+      }
+      if (typeof url === "string" && url.includes("wikipedia.org")) {
+        return { ok: true, json: async () => ({ query: { search: [] } }) };
+      }
+      // Other SearXNG instances — fail
+      return { ok: false, status: 403 };
     });
 
     const { executeSearch } = await import("./services/searchEngine");
@@ -150,26 +174,28 @@ describe("Search Engine Service", () => {
   });
 
   it("should use Brave Search when API key is configured", async () => {
-    // Mock DDG
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      text: async () => `<div></div>`,
-    });
-    // Mock Brave
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        web: {
-          results: [
-            { title: "Brave Result", url: "https://brave-result.com", description: "From Brave" },
-          ],
-        },
-      }),
-    });
-    // Mock Wikipedia
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ query: { search: [] } }),
+    // Order: Brave → SearXNG (public, will fail) → DDG → Wikipedia
+    mockFetch.mockImplementation(async (url: string, opts?: any) => {
+      if (typeof url === "string" && url.includes("api.search.brave.com")) {
+        return {
+          ok: true,
+          json: async () => ({
+            web: {
+              results: [
+                { title: "Brave Result", url: "https://brave-result.com", description: "From Brave" },
+              ],
+            },
+          }),
+        };
+      }
+      if (typeof url === "string" && url.includes("html.duckduckgo.com")) {
+        return { ok: true, text: async () => `<div></div>` };
+      }
+      if (typeof url === "string" && url.includes("wikipedia.org")) {
+        return { ok: true, json: async () => ({ query: { search: [] } }) };
+      }
+      // SearXNG public instances — fail
+      return { ok: false, status: 403 };
     });
 
     const { executeSearch } = await import("./services/searchEngine");
@@ -236,7 +262,6 @@ describe("Web Search Tool Enhancement", () => {
 
 describe("System Prompt Parity", () => {
   it("should include structured task planning section", async () => {
-    // Read the agentStream.ts to verify the planning section exists
     const fs = await import("fs");
     const content = fs.readFileSync("server/agentStream.ts", "utf-8");
     expect(content).toContain("STRUCTURED TASK PLANNING");
@@ -256,5 +281,80 @@ describe("System Prompt Parity", () => {
     const fs = await import("fs");
     const content = fs.readFileSync("server/agentStream.ts", "utf-8");
     expect(content).toContain("authoritative data APIs > web search results > internal knowledge");
+  });
+});
+
+describe("Capability Tiers Service", () => {
+  it("should export getCapabilityDefinitions and resolveTier", async () => {
+    const mod = await import("./services/capabilityTiers");
+    expect(mod.getCapabilityDefinitions).toBeDefined();
+    expect(mod.resolveTier).toBeDefined();
+  });
+
+  it("should define all 9 capability domains", async () => {
+    const { getCapabilityDefinitions } = await import("./services/capabilityTiers");
+    const defs = getCapabilityDefinitions({ apiKeys: {}, usageCounts: {} as any });
+    expect(defs.length).toBeGreaterThanOrEqual(9);
+    
+    const domains = defs.map(d => d.domain);
+    expect(domains).toContain("search");
+    expect(domains).toContain("image_generation");
+    expect(domains).toContain("voice_tts");
+    expect(domains).toContain("browser");
+    expect(domains).toContain("research");
+    expect(domains).toContain("llm");
+  });
+
+  it("should resolve active tier with quality-first degradation", async () => {
+    const { resolveTier } = await import("./services/capabilityTiers");
+    const result = resolveTier("search", { apiKeys: {}, usageCounts: {} as any });
+    
+    // Without any API keys, should degrade to standard (DDG)
+    expect(result).toHaveProperty("tier");
+    expect(result.tier).toHaveProperty("level");
+    expect(result.tier).toHaveProperty("quality");
+    expect(result.tier).toHaveProperty("name");
+  });
+
+  it("should upgrade tier when Brave API key is provided", async () => {
+    const { resolveTier } = await import("./services/capabilityTiers");
+    const result = resolveTier("search", { apiKeys: { BRAVE_SEARCH_API_KEY: "test-key" }, usageCounts: {} as any });
+    
+    // With Brave key, should resolve to premium tier
+    expect(result.tier.quality).toBe("premium");
+  });
+
+  it("should include upgrade paths for each domain", async () => {
+    const { getCapabilityDefinitions } = await import("./services/capabilityTiers");
+    const defs = getCapabilityDefinitions({ apiKeys: {}, usageCounts: {} as any });
+    
+    for (const def of defs) {
+      expect(def).toHaveProperty("upgrades");
+      expect(Array.isArray(def.upgrades)).toBe(true);
+    }
+  });
+});
+
+describe("Tiered Image Generation", () => {
+  it("should export generateImageTiered", async () => {
+    const mod = await import("./services/tieredImageGen");
+    expect(mod.generateImageTiered).toBeDefined();
+    expect(typeof mod.generateImageTiered).toBe("function");
+  });
+});
+
+describe("Tiered Voice TTS", () => {
+  it("should export generateSpeechTiered", async () => {
+    const mod = await import("./services/tieredVoice");
+    expect(mod.generateSpeechTiered).toBeDefined();
+    expect(typeof mod.generateSpeechTiered).toBe("function");
+  });
+});
+
+describe("Tiered Browser", () => {
+  it("should export browseUrlTiered", async () => {
+    const mod = await import("./services/tieredBrowser");
+    expect(mod.browseUrlTiered).toBeDefined();
+    expect(typeof mod.browseUrlTiered).toBe("function");
   });
 });

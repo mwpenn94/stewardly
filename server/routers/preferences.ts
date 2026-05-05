@@ -1,6 +1,7 @@
 import { protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { getUserPreferences, upsertUserPreferences } from "../db";
+import { getCapabilityDefinitions, getCapabilitySummary, resolveTier, type CapabilityDomain, type UserCapabilityConfig } from "../services/capabilityTiers";
 
 export const preferencesRouter = router({
   get: protectedProcedure.query(async ({ ctx }) => {
@@ -112,6 +113,10 @@ export const preferencesRouter = router({
     return {
       searxngUrl: config.searxngUrl || "",
       braveApiKey: config.braveApiKey || "",
+      serperApiKey: config.serperApiKey || "",
+      tavilyApiKey: config.tavilyApiKey || "",
+      googleCseId: config.googleCseId || "",
+      googleCseKey: config.googleCseKey || "",
     };
   }),
 
@@ -119,6 +124,10 @@ export const preferencesRouter = router({
     .input(z.object({
       searxngUrl: z.string().optional(),
       braveApiKey: z.string().optional(),
+      serperApiKey: z.string().optional(),
+      tavilyApiKey: z.string().optional(),
+      googleCseId: z.string().optional(),
+      googleCseKey: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       return upsertUserPreferences({
@@ -126,7 +135,71 @@ export const preferencesRouter = router({
         searchConfig: {
           searxngUrl: input.searxngUrl || undefined,
           braveApiKey: input.braveApiKey || undefined,
+          serperApiKey: input.serperApiKey || undefined,
+          tavilyApiKey: input.tavilyApiKey || undefined,
+          googleCseId: input.googleCseId || undefined,
+          googleCseKey: input.googleCseKey || undefined,
         },
       } as any);
+    }),
+
+  // ── Capability Tiers ──
+  getCapabilityTiers: protectedProcedure.query(async ({ ctx }) => {
+    const prefs = await getUserPreferences(ctx.user.id);
+    const searchConfig = (prefs as any)?.searchConfig || {};
+    
+    const userConfig: UserCapabilityConfig = {
+      apiKeys: {
+        BRAVE_SEARCH_API_KEY: searchConfig.braveApiKey || undefined,
+        SERPER_API_KEY: searchConfig.serperApiKey || undefined,
+        TAVILY_API_KEY: searchConfig.tavilyApiKey || undefined,
+        OPENAI_API_KEY: undefined,
+        ANTHROPIC_API_KEY: undefined,
+        ELEVENLABS_API_KEY: undefined,
+        STABILITY_API_KEY: undefined,
+        GROQ_API_KEY: undefined,
+        BROWSERBASE_API_KEY: undefined,
+        PERPLEXITY_API_KEY: undefined,
+      },
+      searxngUrl: searchConfig.searxngUrl || undefined,
+      usageCounts: {
+        search: 0,
+        image_generation: 0,
+        voice_tts: 0,
+        voice_stt: 0,
+        browser: 0,
+        research: 0,
+        llm: 0,
+        code_execution: 0,
+        document_generation: 0,
+      },
+    };
+
+    return {
+      definitions: getCapabilityDefinitions(userConfig),
+      summary: getCapabilitySummary(userConfig),
+    };
+  }),
+
+  resolveCapabilityTier: protectedProcedure
+    .input(z.object({
+      domain: z.enum(["search", "image_generation", "voice_tts", "voice_stt", "browser", "research", "llm", "code_execution", "document_generation"]),
+    }))
+    .query(async ({ ctx, input }) => {
+      const prefs = await getUserPreferences(ctx.user.id);
+      const searchConfig = (prefs as any)?.searchConfig || {};
+      
+      const userConfig: UserCapabilityConfig = {
+        apiKeys: {
+          BRAVE_SEARCH_API_KEY: searchConfig.braveApiKey || undefined,
+        },
+        searxngUrl: searchConfig.searxngUrl || undefined,
+        usageCounts: {
+          search: 0, image_generation: 0, voice_tts: 0, voice_stt: 0,
+          browser: 0, research: 0, llm: 0, code_execution: 0, document_generation: 0,
+        },
+      };
+
+      return resolveTier(input.domain as CapabilityDomain, userConfig);
     }),
 });
