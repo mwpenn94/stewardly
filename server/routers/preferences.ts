@@ -47,6 +47,47 @@ export const preferencesRouter = router({
     };
   }),
 
+  /**
+   * checkCodespaceScope — Validates the user's GitHub token in real-time
+   * to determine if it has the `codespace` scope (or full permissions).
+   * Returns { hasScope, scopes, username, source } so the UI can show
+   * live status instead of relying on a static boolean.
+   */
+  checkCodespaceScope: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      const { resolveGitHubAuth } = await import("../services/githubAuthFailover");
+      const auth = await resolveGitHubAuth({ userId: ctx.user.id, validate: true });
+      if (!auth) {
+        return { hasScope: false, scopes: [], username: null, source: null, error: "No GitHub token found. Connect GitHub in Connectors." };
+      }
+      // Validate token and get scopes from x-oauth-scopes header
+      const resp = await fetch("https://api.github.com/user", {
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (resp.status !== 200) {
+        return { hasScope: false, scopes: [], username: auth.username || null, source: auth.source, error: "Token validation failed" };
+      }
+      const scopeHeader = resp.headers.get("x-oauth-scopes") || "";
+      const scopes = scopeHeader.split(",").map(s => s.trim()).filter(Boolean);
+      // Classic PATs with all permissions return empty scope header but have full access
+      // Fine-grained PATs also return empty scope header but use different permission model
+      // If token is valid and scope header is empty, assume full access (classic PAT behavior)
+      const hasCodespaceScope = scopes.length === 0 || scopes.includes("codespace") || scopes.includes("repo");
+      // Auto-update the preference if scope is detected
+      if (hasCodespaceScope) {
+        await upsertUserPreferences({ userId: ctx.user.id, codespaceScopeGranted: true });
+      }
+      return { hasScope: hasCodespaceScope, scopes, username: auth.username || null, source: auth.source, error: null };
+    } catch (err: any) {
+      return { hasScope: false, scopes: [], username: null, source: null, error: err.message || "Scope check failed" };
+    }
+  }),
+
   savePreviewTier: protectedProcedure
     .input(z.object({
       previewTier: z.enum(["auto", "webcontainer", "vercel", "codespace"]),

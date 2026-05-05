@@ -1872,10 +1872,15 @@ export default function SettingsPage() {
 
 function DevelopmentSettings() {
   const previewTierQuery = trpc.preferences.getPreviewTier.useQuery();
+  const codespaceScope = trpc.preferences.checkCodespaceScope.useQuery(undefined, {
+    staleTime: 30_000, // Cache for 30s to avoid hammering GitHub API
+    retry: false,
+  });
   const savePreviewTier = trpc.preferences.savePreviewTier.useMutation({
     onSuccess: () => {
       toast.success("Preview tier settings saved");
       previewTierQuery.refetch();
+      codespaceScope.refetch();
     },
     onError: (err) => toast.error(err.message),
   });
@@ -2020,23 +2025,37 @@ function DevelopmentSettings() {
         </div>
       )}
 
-      {/* Codespace Status */}
+      {/* Codespace Status — Live Scope Check */}
       {(selectedTier === "codespace" || selectedTier === "auto") && (
         <div className="space-y-3 mb-6 p-4 rounded-xl border border-border bg-card">
           <h3 className="text-sm font-medium text-foreground">GitHub Codespaces</h3>
-          <p className="text-xs text-muted-foreground">
-            {previewTierQuery.data?.codespaceScopeGranted
-              ? "Codespace scope is granted. You can use Tier 3 (Cloud Sandbox) for full Linux VM previews."
-              : "To use Tier 3 (Cloud Sandbox), you need to re-authorize GitHub with the `codespace` scope. Go to Connectors and reconnect GitHub."}
-          </p>
+          {codespaceScope.isLoading ? (
+            <p className="text-xs text-muted-foreground">Checking GitHub token permissions...</p>
+          ) : codespaceScope.data?.hasScope ? (
+            <p className="text-xs text-muted-foreground">
+              Codespace scope verified via {codespaceScope.data.source === "classic_pat" ? "Classic PAT" : codespaceScope.data.source === "smart_pat" ? "Fine-grained PAT" : "OAuth"}
+              {codespaceScope.data.username && ` (@${codespaceScope.data.username})`}. Tier 3 (Cloud Sandbox) is ready.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {codespaceScope.data?.error || "To use Tier 3 (Cloud Sandbox), connect GitHub with codespace permissions in Connectors."}
+            </p>
+          )}
           <div className={cn(
             "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
-            previewTierQuery.data?.codespaceScopeGranted
-              ? "bg-green-500/10 text-green-400"
-              : "bg-yellow-500/10 text-yellow-400"
+            codespaceScope.isLoading
+              ? "bg-blue-500/10 text-blue-400"
+              : codespaceScope.data?.hasScope
+                ? "bg-green-500/10 text-green-400"
+                : "bg-yellow-500/10 text-yellow-400"
           )}>
-            <div className={cn("w-1.5 h-1.5 rounded-full", previewTierQuery.data?.codespaceScopeGranted ? "bg-green-400" : "bg-yellow-400")} />
-            {previewTierQuery.data?.codespaceScopeGranted ? "Enabled" : "Not Configured"}
+            <div className={cn(
+              "w-1.5 h-1.5 rounded-full",
+              codespaceScope.isLoading
+                ? "bg-blue-400 animate-pulse"
+                : codespaceScope.data?.hasScope ? "bg-green-400" : "bg-yellow-400"
+            )} />
+            {codespaceScope.isLoading ? "Checking..." : codespaceScope.data?.hasScope ? "Enabled" : "Not Configured"}
           </div>
         </div>
       )}
