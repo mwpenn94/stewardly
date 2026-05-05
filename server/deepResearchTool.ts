@@ -639,7 +639,7 @@ async function gatherRealSearchData(sources: ResearchSource[]): Promise<void> {
           // Extract any URLs as citations
           const urlMatches = result.result.match(/https?:\/\/[^\s)]+/g);
           if (urlMatches) {
-            source.citations = [...new Set(urlMatches)].slice(0, 5);
+            source.citations = Array.from(new Set(urlMatches)).slice(0, 5);
           }
           source.reliability = "high"; // Upgrade reliability since we have real data
         }

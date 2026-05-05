@@ -155,6 +155,8 @@ export const userPreferences = mysqlTable("user_preferences", {
   vercelTeamSlug: varchar("vercelTeamSlug", { length: 128 }),
   /** Whether user has granted codespace scope on their GitHub token */
   codespaceScopeGranted: boolean("codespaceScopeGranted").default(false).notNull(),
+  /** Search engine configuration: { searxngUrl?: string, braveApiKey?: string } */
+  searchConfig: json("searchConfig"),
   /** Recursive Optimization: enable convergence-driven iterative improvement on tasks */
   recursiveOptimizationEnabled: boolean("recursiveOptimizationEnabled").default(false).notNull(),
   /** Recursive Optimization: number of consecutive clean passes required for convergence (1-1280) */

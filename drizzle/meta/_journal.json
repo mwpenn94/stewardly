@@ -330,6 +330,13 @@
       "when": 1777954913687,
       "tag": "0046_needy_ted_forrester",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "5",
+      "when": 1777958779074,
+      "tag": "0047_light_miss_america",
+      "breakpoints": true
     }
   ]
 }

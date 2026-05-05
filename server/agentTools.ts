@@ -44,13 +44,18 @@ export const AGENT_TOOLS: Tool[] = [
     function: {
       name: "web_search",
       description:
-        "Search the web for current information, news, research, or facts. Uses DuckDuckGo Instant Answer API, Wikipedia, and direct page fetching to return real, sourced information. ALWAYS use this when asked about real-world entities, companies, products, people, current events, or anything you're uncertain about.",
+        "Search the web for current information using real search engines. Returns actual URLs with titles and snippets from DuckDuckGo, SearXNG, Brave, Wikipedia, and Hacker News. Use 3-5 keywords in Google search style. ALWAYS use this when asked about real-world entities, companies, products, people, current events, or anything you're uncertain about. After getting results, use read_webpage to visit the most relevant URLs for detailed content.",
       parameters: {
         type: "object",
         properties: {
           query: {
             type: "string",
-            description: "The search query to look up on the web",
+            description: "Search query in Google search style, using 3-5 keywords.",
+          },
+          date_range: {
+            type: "string",
+            enum: ["all", "past_hour", "past_day", "past_week", "past_month", "past_year"],
+            description: "(Optional) Time range filter for search results.",
           },
         },
         required: ["query"],
@@ -1473,6 +1478,29 @@ export const AGENT_TOOLS: Tool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "data_lookup",
+      description:
+        "Query authoritative data APIs for real-time structured data. Supports YouTube search, video details, channel info, and other data services. Use this BEFORE web_search when you need structured data from known platforms. Priority: data_lookup > web_search > internal knowledge.",
+      parameters: {
+        type: "object",
+        properties: {
+          api_id: {
+            type: "string",
+            description: "The API endpoint to query. Available: 'Youtube/search' (search videos), 'Youtube/video_details' (get video info by ID), 'Youtube/channel' (get channel info), 'Youtube/trending' (trending videos)",
+          },
+          query_params: {
+            type: "object",
+            description: "Query parameters for the API call. For YouTube/search: { q: 'search term', gl: 'US', hl: 'en' }. For YouTube/video_details: { id: 'video_id' }. For YouTube/channel: { id: 'channel_id' }.",
+          },
+        },
+        required: ["api_id"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ── Tool Executors ──
@@ -1793,18 +1821,70 @@ async function ddgHtmlSearch(query: string): Promise<Array<{ title: string; url:
 }
 
 /**
- * Execute a REAL web search using a multi-source pipeline:
- * 1. DuckDuckGo Instant Answer API (quick facts + Wikipedia link)
- * 2. Wikipedia REST API (detailed summary)
- * 3. Wikipedia Search API (find related articles)
- * 4. Direct page fetch on top URLs for deeper content
+ * Execute a REAL web search using the multi-engine aggregate search service.
+ * Returns actual URLs with titles and snippets — matching Manus's info_search_web.
+ * 
+ * Engine cascade:
+ *   1. DuckDuckGo HTML (primary — free, unlimited, real SERP results)
+ *   2. SearXNG (optional — meta-search if configured)
+ *   3. Brave Search API (optional — free 2000/month)
+ *   4. Wikipedia (supplementary — authoritative reference)
+ *   5. Hacker News (supplementary — tech discussions)
  */
-async function executeWebSearch(args: { query: string }): Promise<ToolResult> {
+async function executeWebSearch(args: { query: string; date_range?: string }, context?: ToolContext): Promise<ToolResult> {
   try {
     const query = args?.query;
     if (!query || typeof query !== "string" || query.trim().length === 0) {
       return { success: false, result: "Invalid web_search: 'query' parameter is required and must be a non-empty string." };
     }
+
+    // Import the new search engine service
+    const { executeSearch, formatSearchResults } = await import("./services/searchEngine");
+
+    // Get user's search configuration (SearXNG URL, Brave API key) if available
+    let searxngUrl: string | undefined;
+    let braveApiKey: string | undefined;
+    if (context?.userId) {
+      try {
+        const { getUserPreferences } = await import("./db");
+        const prefs = await getUserPreferences(context.userId);
+        const searchConfig = (prefs as any)?.searchConfig;
+        if (searchConfig) {
+          searxngUrl = searchConfig.searxngUrl || undefined;
+          braveApiKey = searchConfig.braveApiKey || undefined;
+        }
+      } catch {
+        // Non-fatal: proceed without user config
+      }
+    }
+
+    // Also check environment variables as fallback
+    if (!braveApiKey) braveApiKey = process.env.BRAVE_SEARCH_API_KEY || undefined;
+    if (!searxngUrl) searxngUrl = process.env.SEARXNG_INSTANCE_URL || undefined;
+
+    // Execute the aggregate search
+    const response = await executeSearch({
+      query,
+      dateRange: (args.date_range as any) || "all",
+      numResults: 10,
+      searxngUrl,
+      braveApiKey,
+    });
+
+    // If we got real results, format and return them
+    if (response.results.length > 0) {
+      const formattedResults = formatSearchResults(response);
+      return {
+        success: true,
+        result: formattedResults,
+        url: response.results[0]?.url,
+        artifactType: "browser_url",
+        artifactLabel: `Search: ${query}`,
+      };
+    }
+
+    // Fallback: if no results from any engine, try the legacy pipeline
+    console.warn("[web_search] No results from aggregate search, falling back to legacy pipeline...");
     let formattedResults = `## Web Search Results for: "${query}"\n\n`;
     let foundDirectAnswer = false;
     const sources: SearchSource[] = [];
@@ -1927,8 +2007,8 @@ async function executeWebSearch(args: { query: string }): Promise<ToolResult> {
     const uniqueUrls = Array.from(new Set(urlsToFetch));
     if (uniqueUrls.length > 0) {
       console.log(`[web_search] Fetching ${Math.min(uniqueUrls.length, 2)} pages for detailed content...`);
-      const fetchPromises = uniqueUrls.slice(0, 2).map(async (url) => {
-        const content = await fetchPageContent(url, 4000);
+      const fetchPromises = uniqueUrls.slice(0, 3).map(async (url) => {
+        const content = await fetchPageContent(url, 12000);
         return { url, content };
       });
 
@@ -1947,7 +2027,7 @@ async function executeWebSearch(args: { query: string }): Promise<ToolResult> {
           } catch {
             formattedResults += `**From:** [${page.url}](${page.url})\n`;
           }
-          formattedResults += `${page.content.slice(0, 4000)}\n\n---\n\n`;
+          formattedResults += `${page.content.slice(0, 12000)}\n\n---\n\n`;
         }
       }
     }
@@ -1977,8 +2057,8 @@ async function executeWebSearch(args: { query: string }): Promise<ToolResult> {
       
       if (directUrls.length > 0) {
         console.log(`[web_search] Fetching ${directUrls.length} direct source pages...`);
-        const fetchPromises = directUrls.slice(0, 2).map(async (url) => {
-          const content = await fetchPageContent(url, 5000);
+        const fetchPromises = directUrls.slice(0, 3).map(async (url) => {
+          const content = await fetchPageContent(url, 12000);
           return { url, content };
         });
         const fetched = await Promise.allSettled(fetchPromises);
@@ -2192,7 +2272,7 @@ async function executeReadWebpage(args: { url: string }): Promise<ToolResult> {
       }
     }
 
-    const content = await fetchPageContent(args.url, 12000);
+    const content = await fetchPageContent(args.url, 20000);
 
     if (content.startsWith("(Failed") || content.startsWith("(Non-text")) {
       return {
@@ -3344,7 +3424,7 @@ export async function executeTool(
   try {
   switch (name) {
     case "web_search":
-      return executeWebSearch(args);
+      return executeWebSearch(args, context);
     case "read_webpage":
       return executeReadWebpage(args);
     case "generate_image":
@@ -3491,6 +3571,29 @@ export async function executeTool(
         success: true,
         result: `## ${args.title}\n\n${args.reasoning}\n\n**Conclusion:** ${args.conclusion}`,
       };
+    case "data_lookup": {
+      const { callDataApi } = await import("./_core/dataApi");
+      const apiId = args.api_id as string;
+      if (!apiId) {
+        return { success: false, result: "api_id is required. Available: Youtube/search, Youtube/video_details, Youtube/channel, Youtube/trending" };
+      }
+      try {
+        const queryParams = (args.query_params || {}) as Record<string, unknown>;
+        const data = await callDataApi(apiId, { query: queryParams });
+        const jsonStr = JSON.stringify(data, null, 2);
+        // Truncate if too large
+        const truncated = jsonStr.length > 15000 ? jsonStr.slice(0, 15000) + "\n\n[...truncated]" : jsonStr;
+        return {
+          success: true,
+          result: `## Data API Result: ${apiId}\n\n\`\`\`json\n${truncated}\n\`\`\`\n\n*Source: Manus Data API (authoritative)*`,
+        };
+      } catch (err: any) {
+        return {
+          success: false,
+          result: `Data API call failed for '${apiId}': ${err.message}\n\nAvailable APIs: Youtube/search, Youtube/video_details, Youtube/channel, Youtube/trending\nFallback: Use web_search to find this information instead.`,
+        };
+      }
+    }
     default:
       return { success: false, result: `Unknown tool: ${name}` };
   }

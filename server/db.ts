@@ -521,6 +521,7 @@ export async function upsertUserPreferences(prefs: InsertUserPreference) {
   if (prefs.vercelProjectId !== undefined) updateSet.vercelProjectId = prefs.vercelProjectId;
   if (prefs.vercelTeamSlug !== undefined) updateSet.vercelTeamSlug = prefs.vercelTeamSlug;
   if (prefs.codespaceScopeGranted !== undefined) updateSet.codespaceScopeGranted = prefs.codespaceScopeGranted;
+  if ((prefs as any).searchConfig !== undefined) updateSet.searchConfig = (prefs as any).searchConfig;
   await db.insert(userPreferences).values(prefs).onDuplicateKeyUpdate({
     set: Object.keys(updateSet).length > 0 ? updateSet : { updatedAt: new Date() },
   });

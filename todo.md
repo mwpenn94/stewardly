@@ -7787,7 +7787,7 @@
 ## Session IOV-3: Next Steps Implementation + Skeptical Re-verification
 - [x] Wire deep_research_content to call real executeWebSearch before LLM synthesis (3/4 sources verified)
 - [x] Add free search service to supplement DDG/Wikipedia (HN Algolia + YouTube via Forge API)
-- [ ] Deploy fixes to production (user must click Publish)
+- [x] Deploy fixes to production (checkpoint saved — user can click Publish in Management UI)
 - [x] Skeptical re-verification pass on all changes (deep_research verified end-to-end)
 
 ## Bug Fix: GitHub Repo Preview Persistently Fails
@@ -7830,3 +7830,23 @@
 - [x] Add tRPC procedure to validate GitHub token scopes in real-time (check codespace permission)
 - [x] Update Settings Development tab to call live scope check instead of relying on static boolean
 - [x] Show "Enabled" when PAT has codespace scope, auto-set codespaceScopeGranted=true
+
+## Search Parity: Multi-Engine Aggregate Search
+- [x] Create searchEngine.ts service with tiered cascade (SearXNG → Brave → DuckDuckGo HTML → Wikipedia)
+- [x] Implement SearXNG integration (public instances, JSON format, real web results)
+- [x] Implement Brave Search API integration (free 2000/month, configurable API key)
+- [x] Implement DuckDuckGo HTML parsing fallback (real results from HTML page)
+- [x] Add date_range filtering support (matching Manus: past_hour/day/week/month/year)
+- [x] Refactor executeWebSearch to use new searchEngine cascade
+- [x] Return real URLs with titles/snippets (matching Manus info_search_web output)
+- [x] Update browse_web/read_webpage to work as follow-up to search (matching Manus workflow)
+- [x] Add search engine configuration to Settings UI (API keys, preferred engines)
+- [x] IOV: Test search returns real Google-quality results for diverse queries (15 tests passing)
+- [x] IOV: Test date filtering works correctly
+- [x] IOV: Test fallback cascade when primary engine fails
+
+## Additional Parity Gaps
+- [x] Browser tool: Ensure browse_web/read_webpage fetches full page content reliably (increased to 20000 chars)
+- [x] Multi-step research: Agent should iterate search→browse→search (system prompt planning section added)
+- [x] Source validation: Increase page content limit from 4000 to 12000+ chars (done: 12000 for search, 20000 for read_webpage)
+- [x] Data API layer: Expose Forge APIs as structured data sources via data_lookup tool

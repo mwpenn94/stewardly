@@ -104,4 +104,29 @@ export const preferencesRouter = router({
         codespaceScopeGranted: input.codespaceScopeGranted,
       });
     }),
+
+  // ── Search Engine Configuration ──
+  getSearchConfig: protectedProcedure.query(async ({ ctx }) => {
+    const prefs = await getUserPreferences(ctx.user.id);
+    const config = (prefs as any)?.searchConfig || {};
+    return {
+      searxngUrl: config.searxngUrl || "",
+      braveApiKey: config.braveApiKey || "",
+    };
+  }),
+
+  saveSearchConfig: protectedProcedure
+    .input(z.object({
+      searxngUrl: z.string().optional(),
+      braveApiKey: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return upsertUserPreferences({
+        userId: ctx.user.id,
+        searchConfig: {
+          searxngUrl: input.searxngUrl || undefined,
+          braveApiKey: input.braveApiKey || undefined,
+        },
+      } as any);
+    }),
 });

@@ -1882,7 +1882,7 @@ function DevelopmentSettings() {
       previewTierQuery.refetch();
       codespaceScope.refetch();
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: any) => { toast.error(err.message); },
   });
 
   const [selectedTier, setSelectedTier] = useState<string>("auto");
@@ -2068,6 +2068,107 @@ function DevelopmentSettings() {
       >
         {savePreviewTier.isPending ? "Saving..." : "Save Preview Settings"}
       </button>
+
+      {/* Search Engine Configuration */}
+      <SearchEngineConfig />
     </motion.div>
+  );
+}
+
+/** Search Engine Configuration sub-component */
+function SearchEngineConfig() {
+  const searchConfigQuery = trpc.preferences.getSearchConfig.useQuery();
+  const saveSearchConfig = trpc.preferences.saveSearchConfig.useMutation({
+    onSuccess: () => {
+      toast.success("Search engine settings saved");
+      searchConfigQuery.refetch();
+    },
+    onError: (err: any) => { toast.error(err.message); },
+  });
+
+  const [searxngUrl, setSearxngUrl] = useState("");
+  const [braveApiKey, setBraveApiKey] = useState("");
+
+  useEffect(() => {
+    if (searchConfigQuery.data) {
+      setSearxngUrl(searchConfigQuery.data.searxngUrl || "");
+      setBraveApiKey(searchConfigQuery.data.braveApiKey || "");
+    }
+  }, [searchConfigQuery.data]);
+
+  return (
+    <div className="mt-8 pt-6 border-t border-border">
+      <h3 className="text-lg font-semibold text-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>
+        Search Engines
+      </h3>
+      <p className="text-sm text-muted-foreground mb-4">
+        Configure additional search engines for higher-quality results. DuckDuckGo + Wikipedia are always active (free, unlimited).
+      </p>
+
+      <div className="space-y-4">
+        {/* SearXNG */}
+        <div className="p-4 rounded-xl border border-border bg-card">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 rounded-lg bg-purple-500/10 flex items-center justify-center">
+              <svg className="w-3.5 h-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">SearXNG Instance</p>
+              <p className="text-xs text-muted-foreground">Meta-search engine aggregating Google, Bing, DuckDuckGo, and more</p>
+            </div>
+          </div>
+          <input
+            type="text"
+            value={searxngUrl}
+            onChange={(e) => setSearxngUrl(e.target.value)}
+            placeholder="https://searx.example.com (leave blank to skip)"
+            className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Self-host or use a public instance. Must have JSON format enabled. <a href="https://searx.space" target="_blank" rel="noopener" className="text-primary hover:underline">Find instances</a>
+          </p>
+        </div>
+
+        {/* Brave Search */}
+        <div className="p-4 rounded-xl border border-border bg-card">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 rounded-lg bg-orange-500/10 flex items-center justify-center">
+              <svg className="w-3.5 h-3.5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Brave Search API</p>
+              <p className="text-xs text-muted-foreground">High-quality independent search index — free 2,000 queries/month</p>
+            </div>
+          </div>
+          <input
+            type="password"
+            value={braveApiKey}
+            onChange={(e) => setBraveApiKey(e.target.value)}
+            placeholder="BSA-xxxxxxxxxxxxxxxx (leave blank to skip)"
+            className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Get a free API key at <a href="https://brave.com/search/api/" target="_blank" rel="noopener" className="text-primary hover:underline">brave.com/search/api</a> (2,000 queries/month free)
+          </p>
+        </div>
+
+        {/* Active Engines Summary */}
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">DuckDuckGo (always active)</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">Wikipedia (always active)</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">Hacker News (tech queries)</span>
+          {searxngUrl && <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">SearXNG (configured)</span>}
+          {braveApiKey && <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">Brave Search (configured)</span>}
+        </div>
+      </div>
+
+      <button
+        onClick={() => saveSearchConfig.mutate({ searxngUrl: searxngUrl || undefined, braveApiKey: braveApiKey || undefined })}
+        disabled={saveSearchConfig.isPending}
+        className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+      >
+        {saveSearchConfig.isPending ? "Saving..." : "Save Search Settings"}
+      </button>
+    </div>
   );
 }
