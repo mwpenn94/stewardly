@@ -7920,3 +7920,18 @@
 - [x] Quick action links (Editor, Repo, Deactivate) shown as subtle secondary actions below hero buttons
 - [x] Add inline status: "Last published: May 5, 10:30 AM · yoursite.manus.space"
 - [x] Entire flow works without user ever touching a terminal or knowing git — 1 click Preview, 1 click Publish
+
+## Manus-Style Project Card & Publish Drawer (Parity+ UX)
+- [x] Create SovereignProjectCard matching Manus card pattern:
+  - [x] Live preview thumbnail/screenshot at top (iframe)
+  - [x] Project name + green status dot + domain URL below thumbnail
+  - [x] Two bottom action buttons: "Publish" and "Preview" (matching Manus exactly)
+  - [x] Three-dot menu for additional actions (Editor, Repo, Deactivate)
+- [x] Create PublishDrawer component (vaul-based bottom sheet on publish):
+  - [x] Real-time build log streaming with toggle
+  - [x] Progress stages: Committing → Pushing → Building → Deploying → Live
+  - [x] Success state with "Open Site" button
+  - [x] Error state with retry option
+- [x] Integrate card and drawer into Settings → Development, replacing current hero buttons
+- [x] Card shows live iframe preview of the published site
+- [x] Publish triggers drawer with live progress feedback

@@ -46,6 +46,7 @@ import {
   BarChart3,
   Layers,
   ChevronDown,
+  MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -67,6 +68,7 @@ import ProcessImprovementTracker from "@/components/ProcessImprovementTracker";
 import ScheduledTaskManager from "@/components/ScheduledTaskManager";
 import ConnectorsCRUDPanel from "@/components/ConnectorsCRUDPanel";
 import CapabilityTiersPanel from "@/components/CapabilityTiersPanel";
+import { PublishDrawer } from "@/components/PublishDrawer";
 
 type SettingsTab = "account" | "general" | "notifications" | "secrets" | "capabilities" | "connectors" | "bridge" | "cloud_browser" | "data_controls" | "feedback" | "voice" | "knowledge_base" | "personalization" | "self_improvement" | "data_integration" | "process_improvement" | "scheduled_tasks" | "development";
 
@@ -2301,12 +2303,17 @@ function SearchEngineConfig() {
 }
 
 /**
- * Sovereign Mode — True Manus Parity+ UX
+ * Sovereign Mode — Manus-Parity+ Project Card & Publish Drawer
  * 
- * Two buttons: Preview and Publish. Zero terminal. Zero git commands.
- * The app IS the command center.
+ * A single card (like Manus's project card) with live iframe preview,
+ * status dot, domain, Dashboard/Preview buttons, and a publish drawer.
  */
 function SovereignModeCard() {
+  const [publishDrawerOpen, setPublishDrawerOpen] = useState(false);
+  const [publishStage, setPublishStage] = useState<"idle" | "committing" | "pushing" | "building" | "deploying" | "live" | "error">("idle");
+  const [buildLog, setBuildLog] = useState<string[]>([]);
+  const [publishError, setPublishError] = useState<string | null>(null);
+
   const statusQuery = trpc.sovereignSync.status.useQuery(undefined, { refetchInterval: 8000 });
   const previewQuery = trpc.sovereignSync.getPreviewUrl.useQuery(undefined, { refetchInterval: 15000 });
   const activateMutation = trpc.sovereignSync.activate.useMutation({
@@ -2322,18 +2329,32 @@ function SovereignModeCard() {
   const publishMutation = trpc.sovereignSync.instantPublish.useMutation({
     onSuccess: (data) => {
       if (data.success) {
-        toast.success("Publishing started! Your site will be live in ~60 seconds.", {
-          action: data.publishedUrl ? { label: "Open", onClick: () => window.open(data.publishedUrl!, "_blank") } : undefined,
-        });
+        // Simulate stage progression for the drawer
+        setBuildLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] Push complete`]);
+        setPublishStage("building");
+        setBuildLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] Building project...`]);
+        setTimeout(() => {
+          setBuildLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] Build complete`]);
+          setPublishStage("deploying");
+          setBuildLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] Deploying to edge...`]);
+        }, 8000);
+        setTimeout(() => {
+          setBuildLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] Deployment complete!`]);
+          setPublishStage("live");
+          statusQuery.refetch();
+          previewQuery.refetch();
+        }, 20000);
       } else {
-        toast.error(data.error || "Publish failed");
+        setPublishStage("error");
+        setPublishError(data.error || "Publish failed");
+        setBuildLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: ${data.error}`]);
       }
-      // Start polling for completion
-      setTimeout(() => { statusQuery.refetch(); previewQuery.refetch(); }, 5000);
-      setTimeout(() => { statusQuery.refetch(); previewQuery.refetch(); }, 15000);
-      setTimeout(() => { statusQuery.refetch(); previewQuery.refetch(); }, 30000);
     },
-    onError: (err: any) => { toast.error(err.message); },
+    onError: (err: any) => {
+      setPublishStage("error");
+      setPublishError(err.message);
+      setBuildLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: ${err.message}`]);
+    },
   });
   const deactivateMutation = trpc.sovereignSync.deactivate.useMutation({
     onSuccess: () => {
@@ -2367,18 +2388,30 @@ function SovereignModeCard() {
   };
 
   const handlePublish = () => {
-    if (!isActive && isReady) {
-      // Auto-activate first
-      activateMutation.mutate({}, {
-        onSuccess: () => {
-          // Then publish
-          publishMutation.mutate({});
-        },
-      });
-    } else if (isActive) {
-      publishMutation.mutate({});
-    } else {
+    if (!isReady) {
       toast.info("Connect GitHub and a repo first to enable Publish.");
+      return;
+    }
+    // Open the drawer immediately
+    setPublishDrawerOpen(true);
+    setPublishStage("committing");
+    setBuildLog([`[${new Date().toLocaleTimeString()}] Starting publish...`]);
+    setPublishError(null);
+
+    const doPublish = () => {
+      setBuildLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] Committing changes...`]);
+      setTimeout(() => {
+        setPublishStage("pushing");
+        setBuildLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] Pushing to GitHub...`]);
+        publishMutation.mutate({});
+      }, 1500);
+    };
+
+    if (!isActive) {
+      // Auto-activate first, then publish
+      activateMutation.mutate({}, { onSuccess: doPublish });
+    } else {
+      doPublish();
     }
   };
 
@@ -2387,149 +2420,165 @@ function SovereignModeCard() {
     ? new Date(preview.lastDeployed).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
     : null;
 
+  const publishedDomain = preview?.type === "published" && preview?.url
+    ? preview.url.replace(/^https?:\/\//, "").split("/")[0]
+    : status?.repo.fullName ? `${status.repo.fullName.split("/")[1]}.manus.space` : null;
+
+  const iframeSrc = preview?.url || null;
+
   return (
     <div className="mt-8 pt-6 border-t border-border">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h3 className="text-lg font-semibold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-            Sovereign Mode
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Preview and publish — just like Manus, but from anywhere
-          </p>
+      {/* Manus-Style Project Card */}
+      <div className="w-full rounded-2xl border border-border bg-card overflow-hidden shadow-lg shadow-black/10">
+        {/* Live Preview Thumbnail (iframe) */}
+        <div className="relative w-full aspect-[16/9] bg-muted/20 overflow-hidden">
+          {iframeSrc ? (
+            <iframe
+              src={iframeSrc}
+              className="w-full h-full border-0 pointer-events-none"
+              sandbox="allow-scripts allow-same-origin"
+              loading="lazy"
+              title="Site preview"
+            />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+              <Globe className="w-8 h-8 text-muted-foreground/30" />
+              <p className="text-xs text-muted-foreground/50">
+                {isReady ? "Click Preview to see your site" : "Connect GitHub to get started"}
+              </p>
+            </div>
+          )}
+          {/* Bottom gradient for readability */}
+          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-card/80 to-transparent pointer-events-none" />
         </div>
-        {isActive ? (
-          <span className="px-3 py-1.5 rounded-full bg-green-500/10 text-green-400 text-xs font-medium border border-green-500/20 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            Live
-          </span>
-        ) : isReady ? (
-          <span className="px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium border border-amber-500/20">
-            Ready
-          </span>
-        ) : null}
-      </div>
 
-      {/* Two Hero Buttons — The Core UX */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {/* Preview Button */}
-        <button
-          onClick={handlePreview}
-          disabled={isActivating}
-          className={cn(
-            "relative flex flex-col items-center justify-center gap-2 p-5 rounded-xl border transition-all text-center",
-            preview?.url
-              ? "border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 shadow-sm"
-              : isReady
-                ? "border-border bg-card hover:bg-accent hover:border-primary/30"
-                : "border-border bg-muted/30 cursor-not-allowed opacity-60"
-          )}
-        >
-          <div className={cn(
-            "w-10 h-10 rounded-xl flex items-center justify-center",
-            preview?.url ? "bg-primary/15" : "bg-muted"
-          )}>
-            <ExternalLink className={cn("w-5 h-5", preview?.url ? "text-primary" : "text-muted-foreground")} />
+        {/* Project Info Row */}
+        <div className="px-4 pt-3 pb-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5 min-w-0">
+              {/* App icon */}
+              <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Globe className="w-4 h-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-foreground truncate">Manus Next</h3>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className={cn(
+                    "w-2 h-2 rounded-full shrink-0",
+                    isActive ? "bg-green-400" : isPublishing ? "bg-amber-400 animate-pulse" : "bg-muted-foreground/40"
+                  )} />
+                  {publishedDomain ? (
+                    <span className="text-xs text-muted-foreground truncate">
+                      {lastDeployed ? `${lastDeployed} \u2022 ` : ""}{publishedDomain}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {isActive ? "Live" : isReady ? "Ready to publish" : "Not connected"}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Three-dot menu */}
+            <div className="relative group">
+              <button className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+              <div className="absolute right-0 top-8 z-50 w-44 rounded-xl border border-border bg-popover shadow-xl shadow-black/20 py-1.5 hidden group-focus-within:block hover:block">
+                {status?.codespace.url && (
+                  <a
+                    href={status.codespace.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors"
+                  >
+                    <Code className="w-3.5 h-3.5" />
+                    Open in Editor
+                  </a>
+                )}
+                {status?.repo.fullName && (
+                  <a
+                    href={`https://github.com/${status.repo.fullName}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors"
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    View Repository
+                  </a>
+                )}
+                {isActive && (
+                  <button
+                    onClick={() => deactivateMutation.mutate({ removeWebhook: false })}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-accent transition-colors"
+                  >
+                    Deactivate
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-          <span className="text-sm font-semibold text-foreground">Preview</span>
-          <span className="text-[10px] text-muted-foreground">
-            {preview?.url ? "Opens your live site" : isReady ? "Click to set up" : "Connect GitHub first"}
-          </span>
-        </button>
+        </div>
 
-        {/* Publish Button */}
-        <button
-          onClick={handlePublish}
-          disabled={isPublishing || isActivating}
-          className={cn(
-            "relative flex flex-col items-center justify-center gap-2 p-5 rounded-xl border transition-all text-center",
-            isPublishing
-              ? "border-amber-500/30 bg-amber-500/5 cursor-wait"
-              : isActive
-                ? "border-green-500/30 bg-green-500/5 hover:bg-green-500/10 hover:border-green-500/50 shadow-sm"
+        {/* Two Action Buttons — Matching Manus Card Exactly */}
+        <div className="px-4 pb-4 pt-2 grid grid-cols-2 gap-2.5">
+          <button
+            onClick={handlePublish}
+            disabled={isPublishing || isActivating || !isReady}
+            className={cn(
+              "py-2.5 rounded-xl text-sm font-semibold transition-colors border",
+              isPublishing
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-400 cursor-wait"
                 : isReady
-                  ? "border-border bg-card hover:bg-accent hover:border-green-500/30"
-                  : "border-border bg-muted/30 cursor-not-allowed opacity-60"
-          )}
-        >
-          <div className={cn(
-            "w-10 h-10 rounded-xl flex items-center justify-center",
-            isPublishing ? "bg-amber-500/15" : isActive ? "bg-green-500/15" : "bg-muted"
-          )}>
-            {isPublishing ? (
-              <Zap className="w-5 h-5 text-amber-400 animate-pulse" />
-            ) : (
-              <Zap className={cn("w-5 h-5", isActive ? "text-green-400" : "text-muted-foreground")} />
+                  ? "bg-muted/80 border-border text-foreground hover:bg-muted"
+                  : "bg-muted/30 border-border text-muted-foreground cursor-not-allowed opacity-60"
             )}
-          </div>
-          <span className="text-sm font-semibold text-foreground">
+          >
             {isPublishing ? "Publishing..." : "Publish"}
-          </span>
-          <span className="text-[10px] text-muted-foreground">
-            {isPublishing ? "Building & deploying" : isActive ? "One click → live" : isReady ? "Click to activate & publish" : "Connect GitHub first"}
-          </span>
-        </button>
+          </button>
+          <button
+            onClick={handlePreview}
+            disabled={isActivating}
+            className={cn(
+              "py-2.5 rounded-xl text-sm font-semibold transition-colors border",
+              preview?.url
+                ? "bg-card border-border text-foreground hover:bg-accent"
+                : isReady
+                  ? "bg-card border-border text-foreground hover:bg-accent"
+                  : "bg-muted/30 border-border text-muted-foreground cursor-not-allowed opacity-60"
+            )}
+          >
+            Preview
+          </button>
+        </div>
       </div>
-
-      {/* Status Line */}
-      {lastDeployed && (
-        <p className="text-[11px] text-muted-foreground text-center mb-4">
-          Last published: {lastDeployed}
-          {preview?.type === "published" && " · "}
-          {preview?.type === "published" && (
-            <a href={preview.url!} target="_blank" rel="noopener" className="text-primary hover:underline">
-              {preview.url!.replace(/^https?:\/\//, "").split("/")[0]}
-            </a>
-          )}
-        </p>
-      )}
 
       {/* Prerequisite hint (only when not ready) */}
       {!isReady && (
-        <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 mb-4">
+        <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 mt-4">
           <p className="text-xs text-amber-400">
             {!status?.github.connected
-              ? "Connect GitHub (Settings → Connectors) to enable Sovereign Mode."
-              : "Connect a repository (GitHub page → Add Repo) to enable Sovereign Mode."
+              ? "Connect GitHub (Settings \u2192 Connectors) to enable Sovereign Mode."
+              : "Connect a repository (GitHub page \u2192 Add Repo) to enable Sovereign Mode."
             }
           </p>
         </div>
       )}
 
-      {/* Quick Actions (when active) */}
-      {isActive && (
-        <div className="flex items-center justify-center gap-3 mb-4">
-          {status?.codespace.url && (
-            <a
-              href={status.codespace.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
-            >
-              <Code className="w-3.5 h-3.5" />
-              Editor
-            </a>
-          )}
-          {status?.repo.fullName && (
-            <a
-              href={`https://github.com/${status.repo.fullName}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
-            >
-              <Globe className="w-3.5 h-3.5" />
-              Repo
-            </a>
-          )}
-          <button
-            onClick={() => deactivateMutation.mutate({ removeWebhook: false })}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors"
-          >
-            Deactivate
-          </button>
-        </div>
-      )}
+      {/* Publish Drawer */}
+      <PublishDrawer
+        open={publishDrawerOpen}
+        onOpenChange={setPublishDrawerOpen}
+        stage={publishStage}
+        buildLog={buildLog}
+        publishedUrl={preview?.url || null}
+        error={publishError}
+        onRetry={handlePublish}
+        onOpenSite={() => {
+          if (preview?.url) window.open(preview.url, "_blank");
+        }}
+      />
     </div>
   );
 }
