@@ -1637,7 +1637,10 @@ If git_operation(clone) fails:
       // for repo queries. This guard fires on EVERY turn, unconditionally.
       // It does NOT deactivate after github_ops runs — research is NEVER appropriate
       // for queries about the user's own connected repo.
-      if (isGitHubRepoQuery && toolCalls && toolCalls.length > 0) {
+      // EXCEPTION: When wantsDemonstration is true, the user explicitly asked to
+      // demonstrate ALL capabilities (including web search, research, etc.).
+      // The demonstration protocol takes priority over the GitHub guard.
+      if (isGitHubRepoQuery && !wantsDemonstration && toolCalls && toolCalls.length > 0) {
         const BLOCKED_RESEARCH_TOOLS = ["deep_research_content", "wide_research", "web_search", "read_webpage"];
         const hasResearchCall = toolCalls.some((tc: any) => {
           const name = tc.function?.name || tc.name || "";

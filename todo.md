@@ -7940,3 +7940,9 @@
 - [x] Change from two static buttons to state-dependent: "Dashboard" + "Publish" before deploy, "Dashboard" + "Preview" after deploy
 - [x] Make card thumbnail clickable (opens preview directly, with hover overlay)
 - [x] Remove redundant features that don't align with Manus simplicity
+
+## Critical Bug: Complex Prompts Terminate Early
+- [x] Diagnose why multi-capability demonstration prompts cause "You terminated early" on production
+- [x] Identify root cause in agent loop (GitHub Guard blocks tools required by demonstration protocol)
+- [x] Fix the early termination issue (add !wantsDemonstration bypass to GitHub Guard condition)
+- [x] Verify fix with complex prompts end-to-end (8/8 tests pass, full suite 5458 tests pass)
