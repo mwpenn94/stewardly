@@ -1,0 +1,50 @@
+Phase 3: additive schema migration + customer-state migration scripts + runbook
+
+DDL (drizzle/0048_exotic_snowbird.sql)
+- 414 CREATE TABLE statements covering every stewardly-ai-only table
+  (additive; zero DROPs, zero destructive operations).
+- 79 idempotent ALTER TABLE ADD COLUMN calls onto users, tasks, and
+  user_preferences via the sw_add_column_if_missing stored procedure;
+  foundation columns are preserved (never modified).
+
+Tooling (migrations/scripts/)
+- 01_extract_additive_tables.py — parses stewardly-ai's drizzle/schema.ts
+  and writes 414 verbatim Drizzle blocks to migrations/inputs/additive-tables.ts.
+- 02_diff_overlap_columns.py — produces overlap-column-diff.md showing
+  which columns must be added vs. preserved on the 3 overlap tables.
+- 03_build_merged_schema.py — synthesizes drizzle/schema.merged.ts that
+  re-exports foundation tables and inlines the 414 additive ones, used
+  as input to drizzle-kit generate.
+- 04_emit_overlap_alters.py — translates SAI column definitions to MySQL
+  DDL and appends idempotent ALTER calls to the generated migration.
+- 10_migrate_customer_state.py — imports rows for all 414 additive tables
+  + new columns on overlap tables, with per-table transactions, deferred
+  FK checks, and re-run safety.
+- 11_migrate_integration_credentials.py — re-encrypts integration
+  credentials (GHL, SnapTrade, Plaid, SMS-iT, OpenAI, etc.) under
+  STEWARDLY_INTEGRATION_KEY.
+- 12_migrate_document_vault.py — re-wraps tenant DEKs under
+  STEWARDLY_VAULT_MASTER_KEY; optional --re-encrypt-blobs walks every
+  blob with checkpoint resume.
+- 13_import_pass162_artifacts.py — imports audit_trail, memory_entries,
+  persona_learnings, and Pass-162 artifact tables.
+- run_all.sh — one-shot orchestrator with dry-run support.
+
+Runbooks
+- migrations/runbooks/PHASE_3_RUNBOOK.md — the canonical operator runbook
+  covering pre-flight, backup, dry-run, live migration, validation,
+  and rollback.
+- migrations/runbooks/validation-queries.sql — post-migration acceptance
+  queries.
+
+Inputs
+- migrations/inputs/sai-drizzle-schema.ts — frozen copy of stewardly-ai's
+  schema (8016 lines, 417 tables) used as the migration source of truth.
+- migrations/inputs/sai-tables-additive.txt — 414 table names
+- migrations/inputs/sai-tables-overlap.txt — users, tasks, user_preferences
+- migrations/inputs/overlap-column-diff.md — column-level reconciliation report
+
+Verification
+- `npx tsc --noEmit` passes with zero errors.
+- `npx drizzle-kit generate --schema drizzle/schema.merged.ts` produced
+  the migration cleanly; reviewed output is 100% additive.

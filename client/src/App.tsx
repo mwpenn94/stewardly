@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { TaskProvider } from "./contexts/TaskContext";
 import { BridgeProvider } from "./contexts/BridgeContext";
+import { DisclosureProvider } from "./contexts/DisclosureContext";
 import { lazy, Suspense } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "./components/AppLayout";
@@ -210,6 +211,7 @@ function App() {
       <ThemeProvider defaultTheme="dark" switchable>
         <BridgeProvider>
           <TaskProvider>
+          <DisclosureProvider>
           <TooltipProvider>
             <nav aria-label="Skip navigation" className="contents">
               <a
@@ -225,6 +227,7 @@ function App() {
             </AppLayout>
             <OnboardingTooltips />
           </TooltipProvider>
+          </DisclosureProvider>
           </TaskProvider>
         </BridgeProvider>
       </ThemeProvider>
