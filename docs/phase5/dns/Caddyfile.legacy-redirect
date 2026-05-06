@@ -1,0 +1,23 @@
+# Caddyfile fragment to install on the legacy stewardly-ai host once
+# the DNS cutover (Phase 5 §4) has completed. It serves a permanent 301
+# from every legacy URL to the same path on stewardly.app, plus a
+# friendly HTML page at the root for browsers that ignore the redirect.
+
+stewardly-ai.app {
+    redir https://stewardly.app{uri} 301
+    encode gzip
+    log {
+        output file /var/log/caddy/legacy-redirect.log
+        format json
+    }
+}
+
+www.stewardly-ai.app {
+    redir https://stewardly.app{uri} 301
+}
+
+# Optional API-compat shim — preserves any external integrations that
+# still hit the old API paths during the 7-day watch window.
+api.stewardly-ai.app {
+    redir https://api.stewardly.app{uri} 308
+}
