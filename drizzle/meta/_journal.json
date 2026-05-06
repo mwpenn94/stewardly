@@ -337,6 +337,13 @@
       "when": 1777958779074,
       "tag": "0047_light_miss_america",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "5",
+      "when": 1778089775852,
+      "tag": "0048_exotic_snowbird",
+      "breakpoints": true
     }
   ]
 }
