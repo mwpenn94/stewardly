@@ -1,6 +1,6 @@
 {
-  "name": "manus-next-app",
-  "version": "1.0.0",
+  "name": "stewardly",
+  "version": "3.0.0",
   "type": "module",
   "license": "MIT",
   "scripts": {
