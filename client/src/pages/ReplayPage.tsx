@@ -217,7 +217,7 @@ function EventCard({
           {parsed.url && (
             <a
               href={parsed.url}
-              target="_blank"
+              target="_blank" rel="noopener noreferrer"
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-[10px] text-primary hover:underline mb-2"
               onClick={(e) => e.stopPropagation()}
@@ -551,10 +551,10 @@ export default function ReplayPage() {
             <ChevronLeft className="w-5 h-5" />
           </Button>
           <div className="flex-1">
-            <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
               <Film className="w-5 h-5" />
               Session Replay
-            </h1>
+            </h2>
             <p className="text-xs text-muted-foreground">
               Task #{taskId} — {events.length} events recorded
             </p>

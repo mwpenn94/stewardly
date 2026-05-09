@@ -29,4 +29,19 @@ export const ENV = {
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ?? "",
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET ?? "",
   VITE_STRIPE_PUBLISHABLE_KEY: process.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "",
+  // ── Stewardly v3 integration credentials ──
+  // Plaid (bank account linking)
+  plaidClientId: process.env.PLAID_CLIENT_ID ?? "",
+  plaidSecret: process.env.PLAID_SECRET ?? "",
+  plaidEnv: process.env.PLAID_ENV ?? "sandbox",
+  // SnapTrade (brokerage linking)
+  snapTradeClientId: process.env.SNAPTRADE_CLIENT_ID ?? "",
+  snapTradeConsumerKey: process.env.SNAPTRADE_CONSUMER_KEY ?? "",
+  // Economic data adapters
+  fredApiKey: process.env.FRED_API_KEY ?? "",
+  beaApiKey: process.env.BEA_API_KEY ?? "",
+  blsApiKey: process.env.BLS_API_KEY ?? "",
+  censusApiKey: process.env.CENSUS_API_KEY ?? "",
+  // Token-store encryption (AES-256-GCM key, hex)
+  integrationEncryptionKey: process.env.INTEGRATION_ENCRYPTION_KEY ?? "",
 };

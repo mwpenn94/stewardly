@@ -1,8 +1,44 @@
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 export const voiceRouter = router({
+    /** Edge TTS — high-quality neural speech synthesis (public: guests can use TTS too) */
+    speak: publicProcedure
+      .input(z.object({
+        text: z.string().min(1).max(5000),
+        voice: z.string().default("en-US-GuyNeural"),
+        rate: z.string().default("+0%"),
+        pitch: z.string().default("+0Hz"),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const { generateSpeech } = await import("../edgeTTS");
+          const audioBuffer = await generateSpeech(
+            input.text,
+            input.voice,
+            input.rate,
+            input.pitch,
+          );
+          return {
+            audio: audioBuffer.toString("base64"),
+            mimeType: "audio/mpeg",
+            voice: input.voice,
+          };
+        } catch (err: any) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Speech generation failed. Falling back to browser TTS.",
+          });
+        }
+      }),
+
+    /** List available Edge TTS voices with metadata (public) */
+    voices: publicProcedure.query(async () => {
+      const { getVoiceCatalog } = await import("../edgeTTS");
+      return getVoiceCatalog();
+    }),
+
     transcribe: protectedProcedure
       .input(z.object({
         audioUrl: z.string().min(1),

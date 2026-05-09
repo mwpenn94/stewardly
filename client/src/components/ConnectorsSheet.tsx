@@ -1,7 +1,7 @@
 /**
- * ConnectorsSheet — Manus-native bottom sheet for connectors
+ * ConnectorsSheet — Stewardly-native bottom sheet for connectors
  *
- * Pass 29: Deep recursive optimization — Manus native card rows
+ * Pass 29: Deep recursive optimization — Stewardly native card rows
  * - Card rows with icon + title + description + chevron (→)
  * - X close button (left), centered "Connectors" title, + button (right)
  * - Tapping a card navigates to /connector/:id detail page
@@ -68,9 +68,9 @@ export const CONNECTOR_DEFS: ConnectorDef[] = [
     name: "My Browser",
     icon: "browser",
     description:
-      "Install and enable a Chrome extension so that Manus uses your local browser instead. This may allow access to sites that require logins or have heightened security.",
+      "Install and enable a Chrome extension so that Stewardly uses your local browser instead. This may allow access to sites that require logins or have heightened security.",
     connectorType: "Browser extension",
-    author: "Manus Next",
+    author: "Stewardly",
     website: "https://manus.im",
     privacyPolicy: "https://manus.im/privacy",
     warningCallout:
@@ -83,9 +83,9 @@ export const CONNECTOR_DEFS: ConnectorDef[] = [
     name: "GitHub",
     icon: "github",
     description:
-      "Access, search, and organize repos, track issues, review pull requests, and automate workflows directly in Manus.",
+      "Access, search, and organize repos, track issues, review pull requests, and automate workflows directly in Stewardly.",
     connectorType: "App",
-    author: "Manus Next",
+    author: "Stewardly",
     website: "https://github.com",
     privacyPolicy: "https://manus.im/privacy",
     actionLabel: "Add Repositories",
@@ -100,9 +100,9 @@ export const CONNECTOR_DEFS: ConnectorDef[] = [
     name: "Gmail",
     icon: "mail",
     description:
-      "Read, compose, and manage your Gmail messages directly within Manus for seamless email workflows.",
+      "Read, compose, and manage your Gmail messages directly within Stewardly for seamless email workflows.",
     connectorType: "OAuth",
-    author: "Manus Next",
+    author: "Stewardly",
     website: "https://mail.google.com",
     privacyPolicy: "https://manus.im/privacy",
     authSteps: [{ id: "authorize-account", label: "Authorize Account" }],
@@ -112,9 +112,9 @@ export const CONNECTOR_DEFS: ConnectorDef[] = [
     name: "Google Calendar",
     icon: "calendar",
     description:
-      "View, create, and manage calendar events. Let Manus help schedule meetings and organize your time.",
+      "View, create, and manage calendar events. Let Stewardly help schedule meetings and organize your time.",
     connectorType: "OAuth",
-    author: "Manus Next",
+    author: "Stewardly",
     website: "https://calendar.google.com",
     privacyPolicy: "https://manus.im/privacy",
     authSteps: [{ id: "authorize-account", label: "Authorize Account" }],
@@ -124,9 +124,9 @@ export const CONNECTOR_DEFS: ConnectorDef[] = [
     name: "Google Drive",
     icon: "drive",
     description:
-      "Access, search, and manage files in Google Drive. Upload, download, and organize documents with Manus.",
+      "Access, search, and manage files in Google Drive. Upload, download, and organize documents with Stewardly.",
     connectorType: "OAuth",
-    author: "Manus Next",
+    author: "Stewardly",
     website: "https://drive.google.com",
     privacyPolicy: "https://manus.im/privacy",
     authSteps: [{ id: "authorize-account", label: "Authorize Account" }],
@@ -136,9 +136,9 @@ export const CONNECTOR_DEFS: ConnectorDef[] = [
     name: "Outlook Mail",
     icon: "mail-outlook",
     description:
-      "Read, compose, and manage Outlook emails. Integrate your Microsoft email workflow with Manus.",
+      "Read, compose, and manage Outlook emails. Integrate your Microsoft email workflow with Stewardly.",
     connectorType: "OAuth",
-    author: "Manus Next",
+    author: "Stewardly",
     website: "https://outlook.live.com",
     privacyPolicy: "https://manus.im/privacy",
     authSteps: [{ id: "authorize-account", label: "Authorize Account" }],
@@ -150,7 +150,7 @@ export const CONNECTOR_DEFS: ConnectorDef[] = [
     description:
       "Connect Microsoft 365 apps including Word, Excel, PowerPoint, and OneDrive for productivity workflows.",
     connectorType: "OAuth",
-    author: "Manus Next",
+    author: "Stewardly",
     website: "https://www.microsoft.com/microsoft-365",
     privacyPolicy: "https://manus.im/privacy",
     authSteps: [{ id: "authorize-account", label: "Authorize Account" }],
@@ -160,9 +160,9 @@ export const CONNECTOR_DEFS: ConnectorDef[] = [
     name: "Slack",
     icon: "slack",
     description:
-      "Send and receive messages, manage channels, and automate Slack workflows directly from Manus.",
+      "Send and receive messages, manage channels, and automate Slack workflows directly from Stewardly.",
     connectorType: "OAuth",
-    author: "Manus Next",
+    author: "Stewardly",
     website: "https://slack.com",
     privacyPolicy: "https://manus.im/privacy",
     authSteps: [{ id: "authorize-account", label: "Authorize Account" }],
@@ -172,9 +172,9 @@ export const CONNECTOR_DEFS: ConnectorDef[] = [
     name: "Notion",
     icon: "notion",
     description:
-      "Access and manage Notion workspaces, pages, and databases. Organize knowledge and projects with Manus.",
+      "Access and manage Notion workspaces, pages, and databases. Organize knowledge and projects with Stewardly.",
     connectorType: "OAuth",
-    author: "Manus Next",
+    author: "Stewardly",
     website: "https://notion.so",
     privacyPolicy: "https://manus.im/privacy",
     authSteps: [{ id: "authorize-account", label: "Authorize Account" }],
@@ -182,7 +182,7 @@ export const CONNECTOR_DEFS: ConnectorDef[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════
-   CONNECTOR ICON — SVG icons matching Manus native style
+   CONNECTOR ICON — SVG icons matching Stewardly native style
    ═══════════════════════════════════════════════════════════════════ */
 
 export function ConnectorIcon({ type, className }: { type: string; className?: string }) {

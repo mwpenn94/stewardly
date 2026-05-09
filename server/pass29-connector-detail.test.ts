@@ -194,9 +194,11 @@ describe("Pass 29: CONNECTOR_DEFS Data Integrity", () => {
     expect(sheetCode).toContain('{ id: "authorize-repository", label: "Authorize Repository" }');
   });
 
-  it("all connectors have author set to Manus", () => {
-    // Count occurrences of author: "Manus Next"
-    const matches = sheetCode.match(/author: "Manus Next"/g);
+  it("all connectors have author set to Stewardly", () => {
+    // Brand was reskinned from Manus Next to Stewardly. CONNECTOR_DEFS in
+    // client/src/components/ConnectorsSheet.tsx now sets `author: "Stewardly"`
+    // for every connector entry.
+    const matches = sheetCode.match(/author: "Stewardly"/g);
     expect(matches).not.toBeNull();
     expect(matches!.length).toBeGreaterThanOrEqual(9);
   });

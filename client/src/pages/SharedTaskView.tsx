@@ -11,7 +11,7 @@
  *  - Action steps accordion with vertical connector line + checkmark circles
  *  - Interactive output cards for artifacts
  *  - Loading skeleton overlay
- *  - Sticky bottom CTA: "Try Manus Next" button
+ *  - Sticky bottom CTA: "Try Stewardly" button
  *  - Password gate for protected shares
  *  - noindex meta tag (server-injected)
  */
@@ -232,7 +232,7 @@ function SharedOutputCard({ cardData }: { cardData: Record<string, unknown> }) {
           {openUrl && (
             <a
               href={openUrl}
-              target="_blank"
+              target="_blank" rel="noopener noreferrer"
               rel="noopener noreferrer"
               className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               title="Open"
@@ -416,9 +416,9 @@ function ErrorView({ message, detail }: { message: string; detail?: string }) {
         <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
           <AlertCircle className="w-6 h-6 text-destructive" />
         </div>
-        <h1 className="text-lg font-semibold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+        <h2 className="text-lg font-semibold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
           {message}
-        </h1>
+        </h2>
         {detail && (
           <p className="text-sm text-muted-foreground mt-1.5">{detail}</p>
         )}
@@ -426,7 +426,7 @@ function ErrorView({ message, detail }: { message: string; detail?: string }) {
           href="/"
           className="inline-flex items-center gap-2 mt-6 px-5 py-2.5 bg-foreground text-background rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
         >
-          Go to Manus Next
+          Go to Stewardly
         </a>
       </div>
     </div>
@@ -450,11 +450,11 @@ export default function SharedTaskView() {
   // Set document title
   useEffect(() => {
     if (data && "task" in data && data.task) {
-      document.title = `${data.task.title || "Shared Task"} — Manus Next`;
+      document.title = `${data.task.title || "Shared Task"} — Stewardly`;
     } else {
-      document.title = "Shared Task — Manus Next";
+      document.title = "Shared Task — Stewardly";
     }
-    return () => { document.title = "Manus Next"; };
+    return () => { document.title = "Stewardly"; };
   }, [data]);
 
   const handleCopyLink = () => {
@@ -586,12 +586,12 @@ export default function SharedTaskView() {
       <div className="flex-1 w-full max-w-[800px] mx-auto px-6 pt-6 pb-24">
         {/* Task title (mobile only) */}
         <div className="md:hidden mb-6">
-          <h1
+          <h2
             className="text-lg font-semibold text-foreground"
             style={{ fontFamily: "var(--font-heading)" }}
           >
             {task?.title || "Shared Task"}
-          </h1>
+          </h2>
           <p className="text-xs text-muted-foreground mt-1">
             {task?.status === "completed" ? "Completed" : task?.status || ""}
             {task?.createdAt && (
@@ -619,7 +619,7 @@ export default function SharedTaskView() {
             <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center">
               <svg className="w-3.5 h-3.5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             </div>
-            <span className="text-sm text-muted-foreground">Manus task replay completed</span>
+            <span className="text-sm text-muted-foreground">Task replay completed</span>
           </div>
         </div>
       )}

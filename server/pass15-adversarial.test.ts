@@ -190,7 +190,10 @@ describe("CSS/Layout Regression Guards", () => {
     for (const file of files) {
       if (file === "NotFound.tsx" || file === "SharedTaskView.tsx") continue; // These may use h-screen for centering/full-page layout
       const content = readFileSync(join(pagesDir, file), "utf-8");
-      if (/\bh-screen\b/.test(content)) {
+      // Only flag the bare `h-screen` utility. `min-h-screen` and
+      // `max-h-screen` are legitimate Tailwind utilities for setting
+      // page-min/max height — they do NOT cause double scrollbars.
+      if (/(?:^|[\s"'`])h-screen(?:[\s"'`]|$)/.test(content)) {
         violators.push(file);
       }
     }

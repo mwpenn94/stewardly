@@ -157,7 +157,7 @@ export async function verifyTaskOwnershipById(taskId: number, userId: number) {
   return task;
 }
 
-export async function updateTaskStatus(externalId: string, status: "idle" | "running" | "completed" | "error" | "paused" | "stopped") {
+export async function updateTaskStatus(externalId: string, status: "idle" | "running" | "completed" | "error" | "paused" | "stopped" | "input_required") {
   const db = await getDb();
   if (!db) return;
   await db.update(tasks).set({ status }).where(eq(tasks.externalId, externalId));
@@ -3093,3 +3093,157 @@ export async function updateTaskStepProgress(externalId: string, completedSteps:
   if (!db) return;
   await db.update(tasks).set({ completedSteps, totalSteps }).where(eq(tasks.externalId, externalId));
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stewardly v3 integration adapter functions
+// (added during foundation rebuild — Stewardly source files import requireDb
+//  and getRawPool from "./db" or "../db".)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import mysql from "mysql2/promise";
+
+let _rawPool: mysql.Pool | null = null;
+
+/**
+ * Returns a raw mysql2 connection pool for code paths that need direct SQL
+ * (e.g. plaidTokenStore which executes hand-written INSERT/SELECT queries
+ * against plaid_items). Drizzle is preferred for typed queries — only use
+ * this for legacy Stewardly code that has not been ported to Drizzle yet.
+ */
+export function getRawPool(): mysql.Pool {
+  if (!_rawPool) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("[getRawPool] DATABASE_URL is not set");
+    }
+    _rawPool = mysql.createPool({
+      uri: process.env.DATABASE_URL,
+      connectionLimit: 10,
+    });
+  }
+  return _rawPool;
+}
+
+/**
+ * Returns the Drizzle instance, throwing if it isn't available. Stewardly
+ * source files used this convention (vs the manus-next getDb which returns
+ * `null` when the DB isn't reachable).
+ */
+export async function requireDb() {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("[requireDb] Database is not available — check DATABASE_URL");
+  }
+  return db;
+}
+
+
+// === Auto-appended re-exports from db-ai.ts (canonical stewardly-ai db helpers) ===
+// 94 helpers re-exported.
+
+export {
+  AUDIT_EVENTS,
+  MAX_SAVE_SLOTS,
+  addAuditEntry,
+  addDocument,
+  addDocumentChunks,
+  addDocumentVersion,
+  addFeedback,
+  addGapFeedback,
+  addMemory,
+  addMessage,
+  addQualityRating,
+  addTagToDocument,
+  addToReviewQueue,
+  bulkAddTagsToDocument,
+  bulkDeleteDocuments,
+  bulkUpdateDocumentCategory,
+  bulkUpdateDocumentVisibility,
+  createAnnotation,
+  createConversation,
+  createFolder,
+  createModelPreset,
+  createProduct,
+  createTag,
+  deleteAnnotation,
+  deleteCalculatorSession,
+} from "./db-ai";
+
+export {
+  deleteConversation,
+  deleteDocument,
+  deleteFolder,
+  deleteMemory,
+  deleteModelPreset,
+  deleteProduct,
+  deleteTag,
+  exportConversation,
+  getAccessibleDocuments,
+  getAiResponseQualityStats,
+  getAiToolExecutions,
+  getAllProducts,
+  getAuditTrail,
+  getCalculatorSession,
+  getConversation,
+  getConversationContext,
+  getConversationMessages,
+  getDocumentAnnotations,
+  getDocumentProcessingStats,
+  getDocumentTags,
+  getDocumentVersions,
+  getDocumentsForTag,
+  getFeedbackStats,
+  getGapFeedbackByGapId,
+  getLatestVersionNumber,
+} from "./db-ai";
+
+export {
+  getModelRatingSummary,
+  getModelUsageStats,
+  getModelUsageTimeline,
+  getOperationTypeBreakdown,
+  getOrgProducts,
+  getPendingReviews,
+  getProductsByCategory,
+  getProductsByCompany,
+  getUserConversations,
+  getUserDocuments,
+  getUserFolders,
+  getUserGapFeedback,
+  getUserSuitability,
+  getUserTags,
+  getVisibleProducts,
+  listCalculatorSessions,
+  listUserModelPresets,
+  logAiResponseQuality,
+  logAiToolExecution,
+  moveConversationToFolder,
+  removeTagFromDocument,
+  renameDocument,
+  reorderConversations,
+  reorderDocuments,
+  resolveAnnotation,
+} from "./db-ai";
+
+export {
+  saveCalculatorSession,
+  saveSuitabilityAssessment,
+  searchConversations,
+  searchDocumentChunks,
+  toggleConversationPin,
+  updateCalculatorSession,
+  updateConversationTitle,
+  updateDocumentCategory,
+  updateDocumentStatus,
+  updateDocumentVisibility,
+  updateFolder,
+  updateModelPreset,
+  updateProduct,
+  updateReviewStatus,
+  updateSuitabilityStatus,
+  updateTag,
+  updateUserAvatar,
+  updateUserSettings,
+  updateUserStyleProfile,
+} from "./db-ai";
+

@@ -194,7 +194,11 @@ describe("Phase F: Role-Based Sidebar", () => {
     expect(layoutSrc).toContain("userRole");
   });
 
-  it("F2: AppsGridMenu items have admin-only annotations", () => {
+  // ⚠️  Legacy assertion: pre-taxonomy AppsGridMenu used a `userRole === "admin"`
+  // string literal to gate Webhooks / Data Controls. The 5-engine drawer now
+  // delegates role gating to visibleEnginesFor(role, level) from
+  // shared/engineTaxonomy.ts (asserted in server/engine-taxonomy.test.ts).
+  it.skip("(legacy) F2: AppsGridMenu items have admin-only annotations", () => {
     expect(layoutSrc).toContain('userRole === "admin"');
   });
 });

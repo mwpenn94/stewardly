@@ -236,9 +236,15 @@ describe("VU5: Manus Alignment Auditor — Architecture Patterns", () => {
   });
 
   it("all new features should have zero TypeScript errors", async () => {
-    // This test validates the build is clean
+    // This test validates the build is clean. Path was hard-coded to the
+    // legacy manus-next-app clone path; updated to use the current
+    // project root so the assertion runs against this codebase.
     const { execSync } = await import("child_process");
-    const result = execSync("cd /home/ubuntu/manus-next-app && NODE_OPTIONS='--max-old-space-size=4096' npx tsc --noEmit --skipLibCheck 2>&1 || true", { encoding: "utf-8", timeout: 120000 });
+    const projectRoot = process.cwd();
+    const result = execSync(
+      `cd "${projectRoot}" && NODE_OPTIONS='--max-old-space-size=4096' npx tsc --noEmit --skipLibCheck 2>&1 || true`,
+      { encoding: "utf-8", timeout: 120000 },
+    );
     expect(result.trim()).toBe("");
   }, 130000);
 });

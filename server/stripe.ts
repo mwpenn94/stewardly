@@ -171,12 +171,14 @@ async function fulfillStripeEvent(event: Stripe.Event): Promise<void> {
 export function listProducts() {
   return PRODUCTS.map((p) => ({
     id: p.id,
+    tier: p.tier,
     name: p.name,
     description: p.description,
     price: p.priceAmount / 100,
     currency: p.currency,
     mode: p.mode,
     interval: p.interval,
+    features: p.features,
   }));
 }
 

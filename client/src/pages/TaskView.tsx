@@ -2270,7 +2270,7 @@ function WorkspacePanel({ task, isMobile, onClose, bridgeStatus, agentActions, a
                         <a
                           key={i}
                           href={link.url}
-                          target="_blank"
+                          target="_blank" rel="noopener noreferrer"
                           rel="noopener noreferrer"
                           className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-accent/50 transition-colors text-left"
                         >
@@ -2304,7 +2304,7 @@ function WorkspacePanel({ task, isMobile, onClose, bridgeStatus, agentActions, a
                   <a
                     key={i}
                     href={link.url}
-                    target="_blank"
+                    target="_blank" rel="noopener noreferrer"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2.5 px-3 py-2.5 rounded-md hover:bg-accent/50 transition-colors group"
                   >
@@ -4089,6 +4089,14 @@ export default function TaskView() {
                 Stopped
               </span>
             )}
+            {task.status === "input_required" && (
+              <span
+                data-testid="task-header-status-input-required"
+                className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium shrink-0 whitespace-nowrap"
+              >
+                Needs reply
+              </span>
+            )}
             {/* Cost visibility indicator */}
             {(task.status === "running" || task.status === "completed") && (
               <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/50 whitespace-nowrap shrink-0" title="Estimated task cost">
@@ -4169,7 +4177,7 @@ export default function TaskView() {
             <button
               onClick={() => setSandboxOpen(true)}
               className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors hidden md:flex focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
-              title="Manus's computer"
+              title="Stewardly's computer"
               aria-label="Open sandbox viewer"
             >
               <MonitorPlay className="w-3.5 h-3.5" />
@@ -4697,10 +4705,10 @@ export default function TaskView() {
               </div>
               <div className="max-w-[90%] md:max-w-[80%]">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-xs font-semibold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>manus</span>
+                  <span className="text-xs font-semibold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>stewardly</span>
                   <Loader2 className="w-3 h-3 text-primary animate-spin" />
                 </div>
-                {/* Agent Presence Indicator — "Manus is using [Tool]" header */}
+                {/* Agent Presence Indicator — "Stewardly is using [Tool]" header */}
                 <ActiveToolIndicator
                   actions={agentActions}
                   streaming={streaming}
@@ -5038,7 +5046,7 @@ export default function TaskView() {
                 historyKeyDown(e);
               }}
               onPaste={handlePaste}
-              placeholder={isOffline ? `Offline — ${queueLength} queued message${queueLength !== 1 ? 's' : ''}` : streaming ? "Type a follow-up..." : "Reply to Manus..."}
+              placeholder={isOffline ? `Offline — ${queueLength} queued message${queueLength !== 1 ? 's' : ''}` : streaming ? "Type a follow-up..." : "Reply to Stewardly..."}
               aria-label="Chat message input"
               rows={1}
               className="w-full resize-none bg-transparent px-4 pt-3 pb-14 text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-0 rounded-xl text-sm leading-relaxed"

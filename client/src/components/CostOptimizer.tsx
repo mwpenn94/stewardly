@@ -177,14 +177,14 @@ const CostOptimizer: React.FC = () => {
                             <CardContent>
                                 <div className="h-48 flex flex-col justify-center items-center space-y-2">
                                     <div className="w-full flex justify-between items-center px-4">
-                                        <span className="text-sm font-semibold">Manus AI</span>
+                                        <span className="text-sm font-semibold">Stewardly</span>
                                         <span className="text-lg font-bold text-primary">$4,850</span>
                                     </div>
                                     <div className="w-full flex justify-between items-center px-4">
                                         <span className="text-sm font-semibold">Competitor X</span>
                                         <span className="text-lg font-bold">$6,200</span>
                                     </div>
-                                    <p className="text-xs text-green-400 pt-2">You are saving 22% with Manus AI</p>
+                                    <p className="text-xs text-green-400 pt-2">You are saving 22% with Stewardly</p>
                                 </div>
                             </CardContent>
                         </Card>

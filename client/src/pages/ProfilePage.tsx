@@ -182,7 +182,7 @@ export default function ProfilePage() {
                   <Key className="w-4 h-4 text-muted-foreground" />
                   <div>
                     <p className="text-sm font-medium">Authentication</p>
-                    <p className="text-xs text-muted-foreground">OAuth via Manus</p>
+                    <p className="text-xs text-muted-foreground">OAuth</p>
                   </div>
                 </div>
                 <Badge variant="outline" className="text-xs text-green-500 border-green-500/30">Connected</Badge>

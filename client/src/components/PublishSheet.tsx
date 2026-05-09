@@ -109,7 +109,7 @@ export default function PublishSheet({
                 <div className="flex items-center gap-2 bg-muted rounded-xl px-4 py-3">
                   <a
                     href={`https://${domain}`}
-                    target="_blank"
+                    target="_blank" rel="noopener noreferrer"
                     rel="noopener noreferrer"
                     className="flex-1 text-sm text-foreground underline underline-offset-2 truncate"
                   >

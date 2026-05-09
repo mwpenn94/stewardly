@@ -59,13 +59,13 @@ const mockPolicy: PolicyDocument = {
     {
       id: 'purpose',
       title: 'Purpose',
-      content: 'This policy outlines the acceptable use of computer equipment, networks, and other technology resources at Manus-parity AI. It is intended to protect the company and its employees from illegal or damaging actions by individuals, either knowingly or unknowingly.',
+      content: 'This policy outlines the acceptable use of computer equipment, networks, and other technology resources at Stewardly. It is intended to protect the company and its employees from illegal or damaging actions by individuals, either knowingly or unknowingly.',
       comments: [],
     },
     {
       id: 'scope',
       title: 'Scope',
-      content: 'This policy applies to all employees, contractors, consultants, temporaries, and other workers at Manus-parity AI, including all personnel affiliated with third parties. This policy applies to all equipment that is owned or leased by Manus-parity AI.',
+      content: 'This policy applies to all employees, contractors, consultants, temporaries, and other workers at Stewardly, including all personnel affiliated with third parties. This policy applies to all equipment that is owned or leased by Stewardly.',
       comments: [
         { id: 'c1', author: 'Charlie Davis', avatar: 'CD', text: 'Should we specify if this includes personal devices used for work (BYOD)?', timestamp: '2026-04-29T10:30:00Z' },
       ],

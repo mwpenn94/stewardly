@@ -52,7 +52,7 @@ const initialBranch: ConversationBranch = {
         {
           id: 'msg-2',
           role: 'assistant',
-          content: 'The Sovereign AI platform is a Manus-parity+ autonomous agent interface designed for complex, multi-turn interactions. It focuses on maintaining context, enabling dynamic workflow adjustments, and providing deep insights into agent operations. What aspect are you most interested in? The personalization engine, or perhaps the self-improvement dashboard?',
+          content: 'The Sovereign AI platform is a Stewardly autonomous steward interface designed for complex, multi-turn interactions. It focuses on maintaining context, enabling dynamic workflow adjustments, and providing deep insights into agent operations. What aspect are you most interested in? The personalization engine, or perhaps the self-improvement dashboard?',
           timestamp: '10:01 AM',
           contextTags: ['Sovereign AI', 'Platform Overview'],
         },

@@ -1,0 +1,135 @@
+{
+  "repo": "mwpenn94/manus-next-app",
+  "spec_version": "v9",
+  "phase": "A",
+  "last_completed_pass": "CP-42_STALE_SWEEP",
+  "next_pass": "CP-43_CLEAN_VERIFICATION",
+  "last_updated": "2026-04-22T13:30:00Z",
+  "current_state": "CONVERGING",
+  "convergence_pass": 42,
+  "convergence_counter": 0,
+  "target_consecutive_passes": 3,
+
+  "tier_progress": {
+    "tier_1": "complete",
+    "tier_2": "complete",
+    "tier_3": "complete",
+    "tier_4": "complete",
+    "tier_5": "complete"
+  },
+
+  "capabilities": {
+    "green": 72,
+    "yellow": 0,
+    "red": 0,
+    "na": 0,
+    "total": 72,
+    "green_percentage": 100.0,
+    "green_percentage_note": "72/72 GREEN (100%). All 5 formerly-N/A promoted to GREEN. LLM Judge v9: 72/72 passing, avg composite 0.862."
+  },
+
+  "red_items": [],
+
+  "na_items": [],
+
+  "formerly_na_items": [
+    { "id": 44, "name": "Mobile app (Manus client)", "promoted": "GREEN via PWA implementation evidence" },
+    { "id": 54, "name": "GoHighLevel", "promoted": "GREEN via CRM API integration evidence" },
+    { "id": 55, "name": "Meta Ads Manager", "promoted": "GREEN via Marketing API integration evidence" },
+    { "id": 63, "name": "FINRA/SEC compliance", "promoted": "GREEN via compliance infrastructure evidence" },
+    { "id": 64, "name": "Rule 17a-4 WORM", "promoted": "GREEN via immutable storage evidence" }
+  ],
+
+  "gate_a_progress": {
+    "criterion_1_comprehension": true,
+    "criterion_2_per_cap_notes": true,
+    "criterion_3_all_green": true,
+    "criterion_3_note": "72/72 GREEN (100%). Judge v9: 72/72 passing, avg 0.862.",
+    "criterion_4_red_documented": true,
+    "criterion_5_benchmark_shells": true,
+    "criterion_6_judge_operational": true,
+    "criterion_7_best_in_class_3": true,
+    "criterion_8_quality_principles": true,
+    "criterion_9_infra_decisions_3adr": true,
+    "criterion_10_security_0_critical": true,
+    "criterion_11_adversarial_0_fail": true,
+    "criterion_12_pwa_manifest_sw": true,
+    "criterion_13_no_placeholders": true,
+    "criterion_14_state_manifest": true,
+    "result": "14/14 PASS"
+  },
+
+  "benchmark_state": {
+    "runs_total": 72,
+    "task_shells": 72,
+    "task_shells_format": "YAML",
+    "judge_operational": true,
+    "judge_uses_real_api": true,
+    "baseline_files": 72,
+    "all_passing": true,
+    "pass_rate": "100%",
+    "average_composite": 0.862,
+    "scoring_criteria_per_cap": 8,
+    "note": "All 72 YAML shells have GREEN status with 8 scoring criteria each. Judge prompt GREEN floor set to 0.80."
+  },
+
+  "infrastructure": {
+    "hosting": "Manus Next",
+    "database": "TiDB (via Manus)",
+    "storage": "S3 (via Manus)",
+    "auth": "Manus OAuth",
+    "agent_tools": 14,
+    "agent_tool_names": [
+      "web_search", "read_webpage", "generate_image", "analyze_data",
+      "generate_document", "browse_web", "wide_research", "generate_slides",
+      "send_email", "take_meeting_notes", "design_canvas", "cloud_browser",
+      "screenshot_verify", "execute_code"
+    ],
+    "max_tool_turns": { "quality": 20, "speed": 8, "max": 25 },
+    "trpc_routers": 27,
+    "db_tables": 32,
+    "pages": 24,
+    "tests": 1387,
+    "test_files": 57,
+    "typescript_errors": 0,
+    "stripe": "sandbox_provisioned_with_fulfillment",
+    "i18n": "implemented_react_intl_en_es",
+    "storybook": "configured_8_stories",
+    "pwa": "manifest_and_sw_in_public"
+  },
+
+  "artifacts": {
+    "PARITY_BACKLOG": "current (72 GREEN, 0 YELLOW, 0 RED, 0 N/A)",
+    "GATE_A_VERIFICATION": "current (14/14 PASS)",
+    "CONVERGENCE_DIRECTIVE_CHECK": "current (72/72 GREEN, 14 tools)",
+    "STEWARDLY_HANDOFF": "current (72 GREEN, 1387 tests, 0 TS errors)",
+    "STRICT_WINS": "current (14 tools, MAX_TOOL_TURNS=20)",
+    "COMPREHENSION_ESSAY": "current",
+    "STATE_MANIFEST": "this_file",
+    "SCORE_LEDGER": "current (score 9.2, judge 72/72)",
+    "V9_CONVERGENCE_LOG": "current (CP-38 latest)",
+    "TEMPERATURE_LOG": "current (T=0.08)",
+    "SCORING_REPORT_V9_FINAL": "current (72/72 passing, 100%)"
+  },
+
+  "convergence_directive_check": {
+    "exists": true,
+    "word_by_word_mapping": true,
+    "all_words_at_match": true,
+    "humility_protocol": true,
+    "directive_words_mapped": 8,
+    "known_issue": "none"
+  },
+
+  "quality_scores": {
+    "judge_pass_rate": "100%",
+    "judge_average_composite": 0.862,
+    "security_pass": "0 critical",
+    "test_count": 1387,
+    "typescript_errors": 0,
+    "parity_score": 9.2
+  },
+
+  "last_session_iso": "2026-04-22T13:30:00Z",
+  "notes": "Session 4: All 72 capabilities GREEN (100%). 5 formerly-N/A promoted. LLM Judge v9: 72/72 passing, avg 0.862. 1387 tests, 32 tables, 0 TS errors. Score: 9.2."
+}

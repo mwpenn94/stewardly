@@ -341,8 +341,71 @@
     {
       "idx": 48,
       "version": "5",
-      "when": 1778089775852,
-      "tag": "0048_exotic_snowbird",
+      "when": 1778111109820,
+      "tag": "0048_dazzling_stark_industries",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "5",
+      "when": 1778111298996,
+      "tag": "0049_shiny_supernaut",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "5",
+      "when": 1778115358498,
+      "tag": "0050_whole_medusa",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "5",
+      "when": 1778116350035,
+      "tag": "0051_rainy_morlocks",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "5",
+      "when": 1778128286324,
+      "tag": "0052_spicy_anita_blake",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "5",
+      "when": 1778129916452,
+      "tag": "0053_dizzy_war_machine",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "5",
+      "when": 1778137119314,
+      "tag": "0054_familiar_sheva_callister",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "5",
+      "when": 1778138997092,
+      "tag": "0055_easy_terror",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "5",
+      "when": 1778205019698,
+      "tag": "0057_ambitious_quasar",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "5",
+      "when": 1778217297702,
+      "tag": "0058_square_scream",
       "breakpoints": true
     }
   ]

@@ -1,0 +1,1326 @@
+/**
+ * EMBA Learning — Dynamic content service.
+ *
+ * DB-backed CRUD for disciplines, definitions, formulas, cases,
+ * fs_applications, tracks, chapters, subsections, practice_questions,
+ * and flashcards. Every write goes through `recordContentHistory` to
+ * maintain the audit trail.
+ *
+ * Permission checks are performed by the tRPC router (see
+ * server/routers/learning.ts) — this service is a thin, predictable
+ * data layer with graceful degradation on DB unavailability.
+ */
+
+import { getDb } from "../../db";
+import {
+  learningDisciplines,
+  learningDefinitions,
+  learningFormulas,
+  learningCases,
+  learningFsApplications,
+  learningConnections,
+  learningTracks,
+  learningChapters,
+  learningSubsections,
+  learningPracticeQuestions,
+  learningFlashcards,
+  learningContentHistory,
+} from "../../../drizzle/schema";
+import { and, eq, or, like, desc, sql, isNull, inArray } from "drizzle-orm";
+import { logger } from "../../_core/logger";
+
+const log = logger.child({ module: "learning/content" });
+
+export type Visibility = "public" | "team" | "private";
+export type PublishStatus = "published" | "draft" | "review" | "archived";
+
+// ─── Audit trail ──────────────────────────────────────────────────────────
+
+export async function recordContentHistory(data: {
+  contentTable: string;
+  contentId: number;
+  action: "create" | "update" | "delete" | "restore" | "publish" | "archive";
+  previousData?: any;
+  newData?: any;
+  changedBy: number;
+  changeReason?: string;
+}): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  try {
+    await db.insert(learningContentHistory).values({
+      contentTable: data.contentTable,
+      contentId: data.contentId,
+      action: data.action,
+      previousData: data.previousData ?? null,
+      newData: data.newData ?? null,
+      changedBy: data.changedBy,
+      changeReason: data.changeReason ?? null,
+    });
+  } catch (err) {
+    log.warn({ err: String(err) }, "recordContentHistory failed");
+  }
+}
+
+export async function getContentHistory(contentTable: string, contentId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    return await db
+      .select()
+      .from(learningContentHistory)
+      .where(and(eq(learningContentHistory.contentTable, contentTable), eq(learningContentHistory.contentId, contentId)))
+      .orderBy(desc(learningContentHistory.createdAt));
+  } catch (err) {
+    log.warn({ err: String(err) }, "getContentHistory failed");
+    return [];
+  }
+}
+
+// ─── Disciplines ─────────────────────────────────────────────────────────
+
+export async function listDisciplines(opts?: { includeArchived?: boolean }) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    const rows = await db.select().from(learningDisciplines);
+    return opts?.includeArchived ? rows : rows.filter((r) => r.status !== "archived");
+  } catch (err) {
+    log.warn({ err: String(err) }, "listDisciplines failed");
+    return [];
+  }
+}
+
+export async function upsertDiscipline(data: {
+  slug: string;
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  sortOrder?: number;
+  isCore?: boolean;
+  createdBy?: number | null;
+}): Promise<{ id: number } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [existing] = await db.select().from(learningDisciplines).where(eq(learningDisciplines.slug, data.slug));
+    if (existing) return { id: existing.id };
+    const [row] = await db.insert(learningDisciplines).values({
+      slug: data.slug,
+      name: data.name,
+      description: data.description ?? null,
+      color: data.color ?? null,
+      icon: data.icon ?? null,
+      sortOrder: data.sortOrder ?? 0,
+      isCore: data.isCore ?? true,
+      createdBy: data.createdBy ?? null,
+    });
+    return { id: row.insertId };
+  } catch (err) {
+    log.warn({ err: String(err) }, "upsertDiscipline failed");
+    return null;
+  }
+}
+
+// ─── Definitions CRUD ────────────────────────────────────────────────────
+
+export interface ListFilters {
+  disciplineId?: number;
+  visibility?: Visibility;
+  status?: PublishStatus;
+  search?: string;
+  limit?: number;
+}
+
+export async function listDefinitions(filters: ListFilters = {}) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    const conds: any[] = [];
+    if (filters.disciplineId) conds.push(eq(learningDefinitions.disciplineId, filters.disciplineId));
+    if (filters.visibility) conds.push(eq(learningDefinitions.visibility, filters.visibility));
+    if (filters.status) conds.push(eq(learningDefinitions.status, filters.status));
+    if (filters.search) conds.push(like(learningDefinitions.term, `%${filters.search}%`));
+    return await db
+      .select()
+      .from(learningDefinitions)
+      .where(conds.length ? and(...conds) : undefined)
+      .limit(filters.limit ?? 100);
+  } catch (err) {
+    log.warn({ err: String(err) }, "listDefinitions failed");
+    return [];
+  }
+}
+
+export async function getDefinition(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [row] = await db.select().from(learningDefinitions).where(eq(learningDefinitions.id, id));
+    return row ?? null;
+  } catch (err) {
+    log.warn({ err: String(err) }, "getDefinition failed");
+    return null;
+  }
+}
+
+export async function createDefinition(data: {
+  disciplineId?: number | null;
+  term: string;
+  definition: string;
+  createdBy: number;
+  visibility?: Visibility;
+  status?: PublishStatus;
+  sourceRef?: string;
+  tags?: string[];
+}): Promise<{ id: number } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [row] = await db.insert(learningDefinitions).values({
+      disciplineId: data.disciplineId ?? null,
+      term: data.term,
+      definition: data.definition,
+      createdBy: data.createdBy,
+      visibility: data.visibility ?? "public",
+      status: data.status ?? "published",
+      sourceRef: data.sourceRef ?? null,
+      tags: data.tags ?? null,
+    });
+    await recordContentHistory({
+      contentTable: "learning_definitions",
+      contentId: row.insertId,
+      action: "create",
+      newData: { term: data.term, definition: data.definition },
+      changedBy: data.createdBy,
+    });
+    return { id: row.insertId };
+  } catch (err) {
+    log.warn({ err: String(err) }, "createDefinition failed");
+    return null;
+  }
+}
+
+export async function updateDefinition(
+  id: number,
+  patch: Partial<{
+    term: string;
+    definition: string;
+    disciplineId: number | null;
+    visibility: Visibility;
+    status: PublishStatus;
+    sourceRef: string | null;
+    tags: string[];
+  }>,
+  changedBy: number,
+  changeReason?: string,
+): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  try {
+    const before = await getDefinition(id);
+    if (!before) return false;
+    const values: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) values[k] = v;
+    }
+    values["version"] = (before.version ?? 1) + 1;
+    await db.update(learningDefinitions).set(values as any).where(eq(learningDefinitions.id, id));
+    await recordContentHistory({
+      contentTable: "learning_definitions",
+      contentId: id,
+      action: "update",
+      previousData: before,
+      newData: values,
+      changedBy,
+      changeReason,
+    });
+    return true;
+  } catch (err) {
+    log.warn({ err: String(err) }, "updateDefinition failed");
+    return false;
+  }
+}
+
+export async function archiveDefinition(id: number, changedBy: number, reason?: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  try {
+    const before = await getDefinition(id);
+    if (!before) return false;
+    await db.update(learningDefinitions).set({ status: "archived" } as any).where(eq(learningDefinitions.id, id));
+    await recordContentHistory({
+      contentTable: "learning_definitions",
+      contentId: id,
+      action: "archive",
+      previousData: before,
+      changedBy,
+      changeReason: reason,
+    });
+    return true;
+  } catch (err) {
+    log.warn({ err: String(err) }, "archiveDefinition failed");
+    return false;
+  }
+}
+
+// ─── Tracks CRUD ─────────────────────────────────────────────────────────
+
+/** Shared select fields for track queries (includes computed counts) */
+const trackSelectFields = {
+  id: learningTracks.id,
+  slug: learningTracks.slug,
+  name: learningTracks.name,
+  category: learningTracks.category,
+  title: learningTracks.title,
+  subtitle: learningTracks.subtitle,
+  description: learningTracks.description,
+  color: learningTracks.color,
+  emoji: learningTracks.emoji,
+  tagline: learningTracks.tagline,
+  examOverview: learningTracks.examOverview,
+  createdBy: learningTracks.createdBy,
+  visibility: learningTracks.visibility,
+  status: learningTracks.status,
+  version: learningTracks.version,
+  sortOrder: learningTracks.sortOrder,
+  createdAt: learningTracks.createdAt,
+  updatedAt: learningTracks.updatedAt,
+  chapterCount: sql<number>`(SELECT COUNT(*) FROM learning_chapters WHERE track_id = learning_tracks.id)`.as('chapter_count'),
+  flashcardCount: sql<number>`(SELECT COUNT(*) FROM learning_flashcards WHERE track_id = learning_tracks.id)`.as('flashcard_count'),
+  questionCount: sql<number>`(SELECT COUNT(*) FROM learning_practice_questions WHERE track_id = learning_tracks.id)`.as('question_count'),
+};
+
+export async function listTracks(filters: ListFilters = {}) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    const conds: any[] = [];
+    if (filters.status) {
+      conds.push(eq(learningTracks.status, filters.status));
+    } else {
+      // By default, exclude archived tracks
+      conds.push(sql`${learningTracks.status} != 'archived'`);
+    }
+    if (filters.visibility) conds.push(eq(learningTracks.visibility, filters.visibility));
+    if (filters.search) conds.push(like(learningTracks.name, `%${filters.search}%`));
+    const rows = await db
+      .select(trackSelectFields)
+      .from(learningTracks)
+      .where(conds.length ? and(...conds) : undefined)
+      .orderBy(learningTracks.sortOrder)
+      .limit(filters.limit ?? 100);
+    return rows;
+  } catch (err) {
+    log.warn({ err: String(err) }, "listTracks failed");
+    return [];
+  }
+}
+
+export async function getTrack(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [row] = await db.select(trackSelectFields).from(learningTracks).where(eq(learningTracks.id, id));
+    return row ?? null;
+  } catch (err) {
+    log.warn({ err: String(err) }, "getTrack failed");
+    return null;
+  }
+}
+
+/**
+ * Look up a track by slug, tolerating common URL-style variants.
+ * Tries the slug as-is, then with hyphens<->underscores swapped, then with
+ * separators removed entirely (so `series-65` matches a stored `series65`,
+ * `life-health` matches `life_health`, and `p-and-c` matches `p_and_c`).
+ */
+export async function getTrackBySlug(slug: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+  const push = (s: string) => {
+    const v = s.trim().toLowerCase();
+    if (v && !seen.has(v)) {
+      seen.add(v);
+      candidates.push(v);
+    }
+  };
+  push(slug);
+  push(slug.replace(/-/g, "_"));
+  push(slug.replace(/_/g, "-"));
+  push(slug.replace(/[-_]/g, ""));
+  // Normalize legacy `series_65` / `series65` / `series-65` to canonical form
+  const m = /^series[-_]?(\d+)$/i.exec(slug);
+  if (m) {
+    push(`series${m[1]}`);
+    push(`series_${m[1]}`);
+    push(`series-${m[1]}`);
+  }
+  try {
+    for (const c of candidates) {
+      const [row] = await db
+        .select(trackSelectFields)
+        .from(learningTracks)
+        .where(eq(learningTracks.slug, c));
+      if (row) return row;
+    }
+    return null;
+  } catch (err) {
+    log.warn({ err: String(err) }, "getTrackBySlug failed");
+    return null;
+  }
+}
+
+export async function createTrack(data: {
+  slug: string;
+  name: string;
+  category?: "securities" | "planning" | "insurance" | "custom";
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  color?: string;
+  emoji?: string;
+  tagline?: string;
+  examOverview?: any;
+  createdBy: number | null;
+  visibility?: Visibility;
+  status?: PublishStatus;
+  sortOrder?: number;
+}): Promise<{ id: number } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [row] = await db.insert(learningTracks).values({
+      slug: data.slug,
+      name: data.name,
+      category: data.category ?? "custom",
+      title: data.title ?? null,
+      subtitle: data.subtitle ?? null,
+      description: data.description ?? null,
+      color: data.color ?? null,
+      emoji: data.emoji ?? null,
+      tagline: data.tagline ?? null,
+      examOverview: data.examOverview ?? null,
+      createdBy: data.createdBy,
+      visibility: data.visibility ?? "public",
+      status: data.status ?? "published",
+      sortOrder: data.sortOrder ?? 0,
+    });
+    if (data.createdBy !== null) {
+      await recordContentHistory({
+        contentTable: "learning_tracks",
+        contentId: row.insertId,
+        action: "create",
+        newData: { slug: data.slug, name: data.name },
+        changedBy: data.createdBy,
+      });
+    }
+    return { id: row.insertId };
+  } catch (err) {
+    log.warn({ err: String(err) }, "createTrack failed");
+    return null;
+  }
+}
+
+export async function updateTrack(
+  id: number,
+  patch: Partial<{
+    name: string;
+    title: string;
+    subtitle: string;
+    description: string;
+    status: PublishStatus;
+    visibility: Visibility;
+    sortOrder: number;
+  }>,
+  changedBy: number,
+): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  try {
+    const before = await getTrack(id);
+    if (!before) return false;
+    const values: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) values[k] = v;
+    }
+    values["version"] = (before.version ?? 1) + 1;
+    await db.update(learningTracks).set(values as any).where(eq(learningTracks.id, id));
+    await recordContentHistory({
+      contentTable: "learning_tracks",
+      contentId: id,
+      action: "update",
+      previousData: before,
+      newData: values,
+      changedBy,
+    });
+    return true;
+  } catch (err) {
+    log.warn({ err: String(err) }, "updateTrack failed");
+    return false;
+  }
+}
+
+// ─── Chapters, subsections (simpler: create/list/delete) ─────────────────
+
+export async function listChaptersForTrack(trackId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    return await db
+      .select()
+      .from(learningChapters)
+      .where(eq(learningChapters.trackId, trackId))
+      .orderBy(learningChapters.sortOrder);
+  } catch (err) {
+    log.warn({ err: String(err) }, "listChaptersForTrack failed");
+    return [];
+  }
+}
+
+export async function listSubsectionsForChapter(chapterId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    return await db
+      .select()
+      .from(learningSubsections)
+      .where(eq(learningSubsections.chapterId, chapterId))
+      .orderBy(learningSubsections.sortOrder);
+  } catch (err) {
+    log.warn({ err: String(err) }, "listSubsectionsForChapter failed");
+    return [];
+  }
+}
+
+export async function createChapter(data: {
+  trackId: number;
+  title: string;
+  intro?: string;
+  isPractice?: boolean;
+  sortOrder?: number;
+  createdBy: number | null;
+}): Promise<{ id: number } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [row] = await db.insert(learningChapters).values({
+      trackId: data.trackId,
+      title: data.title,
+      intro: data.intro ?? null,
+      isPractice: data.isPractice ?? false,
+      sortOrder: data.sortOrder ?? 0,
+      createdBy: data.createdBy,
+    });
+    return { id: row.insertId };
+  } catch (err) {
+    log.warn({ err: String(err) }, "createChapter failed");
+    return null;
+  }
+}
+
+export async function createSubsection(data: {
+  chapterId: number;
+  title?: string;
+  level?: number;
+  paragraphs?: string[];
+  tables?: any[];
+  sortOrder?: number;
+  createdBy: number | null;
+}): Promise<{ id: number } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [row] = await db.insert(learningSubsections).values({
+      chapterId: data.chapterId,
+      title: data.title ?? null,
+      level: data.level ?? 2,
+      paragraphs: data.paragraphs ?? null,
+      tables: data.tables ?? null,
+      sortOrder: data.sortOrder ?? 0,
+      createdBy: data.createdBy,
+    });
+    return { id: row.insertId };
+  } catch (err) {
+    log.warn({ err: String(err) }, "createSubsection failed");
+    return null;
+  }
+}
+
+// ─── Practice questions + flashcards ─────────────────────────────────────
+
+export type QuestionStatus = "published" | "draft" | "review" | "retired";
+
+export async function listQuestionsForTrack(
+  trackId: number,
+  filters: Partial<{ difficulty: "easy" | "medium" | "hard"; status: QuestionStatus }> = {},
+) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    const conds: any[] = [eq(learningPracticeQuestions.trackId, trackId)];
+    if (filters.difficulty) conds.push(eq(learningPracticeQuestions.difficulty, filters.difficulty));
+    if (filters.status) conds.push(eq(learningPracticeQuestions.status, filters.status));
+    return await db
+      .select()
+      .from(learningPracticeQuestions)
+      .where(and(...conds));
+  } catch (err) {
+    log.warn({ err: String(err) }, "listQuestionsForTrack failed");
+    return [];
+  }
+}
+
+export async function createPracticeQuestion(data: {
+  trackId?: number;
+  chapterId?: number;
+  prompt: string;
+  options: string[];
+  correctIndex: number;
+  explanation?: string;
+  difficulty?: "easy" | "medium" | "hard";
+  tags?: string[];
+  createdBy: number | null;
+  source?: "manual" | "ai_generated" | "user_authored";
+  status?: "published" | "draft" | "review" | "retired";
+}): Promise<{ id: number } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [row] = await db.insert(learningPracticeQuestions).values({
+      trackId: data.trackId ?? null,
+      chapterId: data.chapterId ?? null,
+      prompt: data.prompt,
+      options: data.options,
+      correctIndex: data.correctIndex,
+      explanation: data.explanation ?? null,
+      difficulty: data.difficulty ?? "medium",
+      tags: data.tags ?? null,
+      createdBy: data.createdBy,
+      source: data.source ?? "manual",
+      status: data.status ?? "published",
+    });
+    return { id: row.insertId };
+  } catch (err) {
+    log.warn({ err: String(err) }, "createPracticeQuestion failed");
+    return null;
+  }
+}
+
+export async function listFlashcardsForTrack(trackId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    return await db.select().from(learningFlashcards).where(eq(learningFlashcards.trackId, trackId));
+  } catch (err) {
+    log.warn({ err: String(err) }, "listFlashcardsForTrack failed");
+    return [];
+  }
+}
+
+export async function getFlashcardById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [row] = await db.select().from(learningFlashcards).where(eq(learningFlashcards.id, id));
+    return row ?? null;
+  } catch (err) {
+    log.warn({ err: String(err) }, "getFlashcardById failed");
+    return null;
+  }
+}
+
+export async function getQuestionById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [row] = await db
+      .select()
+      .from(learningPracticeQuestions)
+      .where(eq(learningPracticeQuestions.id, id));
+    return row ?? null;
+  } catch (err) {
+    log.warn({ err: String(err) }, "getQuestionById failed");
+    return null;
+  }
+}
+
+export async function getFlashcardsByIds(ids: number[]) {
+  if (ids.length === 0) return [];
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    return await db
+      .select()
+      .from(learningFlashcards)
+      .where(inArray(learningFlashcards.id, ids));
+  } catch (err) {
+    log.warn({ err: String(err) }, "getFlashcardsByIds failed");
+    return [];
+  }
+}
+
+export async function getQuestionsByIds(ids: number[]) {
+  if (ids.length === 0) return [];
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    return await db
+      .select()
+      .from(learningPracticeQuestions)
+      .where(inArray(learningPracticeQuestions.id, ids));
+  } catch (err) {
+    log.warn({ err: String(err) }, "getQuestionsByIds failed");
+    return [];
+  }
+}
+
+export async function createFlashcard(data: {
+  trackId?: number;
+  chapterId?: number;
+  term: string;
+  definition: string;
+  sourceLabel?: string;
+  createdBy: number | null;
+  source?: "manual" | "ai_generated" | "user_authored";
+  tags?: string[];
+}): Promise<{ id: number } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [row] = await db.insert(learningFlashcards).values({
+      trackId: data.trackId ?? null,
+      chapterId: data.chapterId ?? null,
+      term: data.term,
+      definition: data.definition,
+      sourceLabel: data.sourceLabel ?? null,
+      createdBy: data.createdBy,
+      source: data.source ?? "manual",
+      tags: data.tags ?? null,
+    });
+    return { id: row.insertId };
+  } catch (err) {
+    log.warn({ err: String(err) }, "createFlashcard failed");
+    return null;
+  }
+}
+
+// ─── Unified search across content types ────────────────────────────────
+
+export interface SearchResult {
+  type: "definition" | "formula" | "case" | "track" | "flashcard" | "question";
+  id: number;
+  title: string;
+  snippet: string;
+}
+
+export async function searchContent(query: string, limit = 20): Promise<SearchResult[]> {
+  const db = await getDb();
+  if (!db) return [];
+  // Pass 8 (build loop) — search now matches body text as well as
+  // titles, plus includes practice questions so every imported
+  // emba_modules content type is discoverable.
+  const like$ = `%${query}%`;
+  const results: SearchResult[] = [];
+  try {
+    // Definitions — match term OR body
+    const defs = await db
+      .select()
+      .from(learningDefinitions)
+      .where(
+        and(
+          eq(learningDefinitions.status, "published"),
+          or(
+            like(learningDefinitions.term, like$),
+            like(learningDefinitions.definition, like$),
+          ),
+        ),
+      )
+      .limit(limit);
+    for (const d of defs) {
+      results.push({
+        type: "definition",
+        id: d.id,
+        title: d.term,
+        snippet: (d.definition ?? "").slice(0, 200),
+      });
+    }
+
+    // Flashcards — match term OR definition body
+    const fcs = await db
+      .select()
+      .from(learningFlashcards)
+      .where(
+        and(
+          eq(learningFlashcards.status, "published"),
+          or(
+            like(learningFlashcards.term, like$),
+            like(learningFlashcards.definition, like$),
+          ),
+        ),
+      )
+      .limit(limit);
+    for (const f of fcs) {
+      results.push({
+        type: "flashcard",
+        id: f.id,
+        title: f.term,
+        snippet: (f.definition ?? "").slice(0, 200),
+      });
+    }
+
+    // Tracks — match name + tagline/subtitle/description
+    const tracks = await db
+      .select()
+      .from(learningTracks)
+      .where(
+        and(
+          eq(learningTracks.status, "published"),
+          or(
+            like(learningTracks.name, like$),
+            like(learningTracks.title, like$),
+            like(learningTracks.subtitle, like$),
+            like(learningTracks.description, like$),
+          ),
+        ),
+      )
+      .limit(limit);
+    for (const t of tracks) {
+      results.push({
+        type: "track",
+        id: t.id,
+        title: t.name,
+        snippet: (t.subtitle ?? t.description ?? "").slice(0, 200),
+      });
+    }
+
+    // Practice questions — match prompt (explanation searched too if present)
+    const qs = await db
+      .select()
+      .from(learningPracticeQuestions)
+      .where(
+        and(
+          eq(learningPracticeQuestions.status, "published"),
+          or(
+            like(learningPracticeQuestions.prompt, like$),
+            like(learningPracticeQuestions.explanation, like$),
+          ),
+        ),
+      )
+      .limit(limit);
+    for (const q of qs) {
+      const prompt = (q.prompt ?? "") as string;
+      results.push({
+        type: "question",
+        id: q.id,
+        title: prompt.length > 80 ? `${prompt.slice(0, 77)}…` : prompt,
+        snippet: (q.explanation ?? "").slice(0, 200),
+      });
+    }
+  } catch (err) {
+    log.warn({ err: String(err) }, "searchContent failed");
+  }
+  return results.slice(0, limit);
+}
+
+// ─── Explain concept (agent helper) ──────────────────────────────────────
+
+export async function explainConcept(concept: string): Promise<{
+  term: string;
+  definition: string | null;
+  related: string[];
+} | null> {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [def] = await db
+      .select()
+      .from(learningDefinitions)
+      .where(and(eq(learningDefinitions.status, "published"), like(learningDefinitions.term, `%${concept}%`)))
+      .limit(1);
+    if (!def) return null;
+    return {
+      term: def.term,
+      definition: def.definition,
+      related: [],
+    };
+  } catch (err) {
+    log.warn({ err: String(err) }, "explainConcept failed");
+    return null;
+  }
+}
+
+// ─── Cases ──────────────────────────────────────────────────────────────
+
+export async function listCases(filters: { disciplineId?: number; status?: PublishStatus } = {}) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    const conditions = [eq(learningCases.status, filters.status ?? "published")];
+    if (filters.disciplineId) conditions.push(eq(learningCases.disciplineId, filters.disciplineId));
+    return db
+      .select()
+      .from(learningCases)
+      .where(and(...conditions))
+      .orderBy(desc(learningCases.updatedAt));
+  } catch (err) {
+    log.warn({ err: String(err) }, "listCases failed");
+    return [];
+  }
+}
+
+// ─── FS Applications ─────────────────────────────────────────────────────
+
+export async function listFsApplications(filters: { disciplineId?: number; status?: PublishStatus } = {}) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    const conditions = [eq(learningFsApplications.status, filters.status ?? "published")];
+    if (filters.disciplineId) conditions.push(eq(learningFsApplications.disciplineId, filters.disciplineId));
+    return db
+      .select()
+      .from(learningFsApplications)
+      .where(and(...conditions))
+      .orderBy(desc(learningFsApplications.updatedAt));
+  } catch (err) {
+    log.warn({ err: String(err) }, "listFsApplications failed");
+    return [];
+  }
+}
+
+// ─── Connections (concept graph edges) ──────────────────────────────────
+
+export async function listConnections(filters: { status?: string } = {}) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    return db
+      .select({
+        id: learningConnections.id,
+        fromDefinitionId: learningConnections.fromDefinitionId,
+        toDefinitionId: learningConnections.toDefinitionId,
+        relationship: learningConnections.relationship,
+        status: learningConnections.status,
+      })
+      .from(learningConnections)
+      .where(eq(learningConnections.status, (filters.status as "published" | "draft" | "archived") ?? "published"));
+  } catch (err) {
+    log.warn({ err: String(err) }, "listConnections failed");
+    return [];
+  }
+}
+
+// ─── Formulas ──────────────────────────────────────────────────────────
+export async function listFormulas(filters: { disciplineId?: number; status?: PublishStatus } = {}) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    const conditions: any[] = [];
+    if (filters.disciplineId) conditions.push(eq(learningFormulas.disciplineId, filters.disciplineId));
+    conditions.push(eq(learningFormulas.status, (filters.status ?? "published") as any));
+    return db
+      .select()
+      .from(learningFormulas)
+      .where(and(...conditions))
+      .orderBy(learningFormulas.name);
+  } catch (err) {
+    log.warn({ err: String(err) }, "listFormulas failed");
+    return [];
+  }
+}
+
+
+// ─── Create helpers for content types missing from embaImport ─────────
+
+export async function createFormula(data: {
+  disciplineId: number | null;
+  name: string;
+  formula: string;
+  variables?: any;
+  createdBy: number | null;
+  sourceRef?: string;
+  tags?: any;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [result] = await db.insert(learningFormulas).values({
+      disciplineId: data.disciplineId,
+      name: data.name,
+      formula: data.formula,
+      variables: data.variables ?? null,
+      createdBy: data.createdBy,
+      sourceRef: data.sourceRef ?? null,
+      tags: data.tags ?? null,
+    });
+    return { id: result.insertId };
+  } catch (err) {
+    log.warn({ err: String(err) }, "createFormula failed");
+    return null;
+  }
+}
+
+export async function createCase(data: {
+  disciplineId: number | null;
+  title: string;
+  content: string;
+  createdBy: number | null;
+  sourceRef?: string;
+  tags?: any;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [result] = await db.insert(learningCases).values({
+      disciplineId: data.disciplineId,
+      title: data.title,
+      content: data.content,
+      createdBy: data.createdBy,
+      sourceRef: data.sourceRef ?? null,
+      tags: data.tags ?? null,
+    });
+    return { id: result.insertId };
+  } catch (err) {
+    log.warn({ err: String(err) }, "createCase failed");
+    return null;
+  }
+}
+
+export async function createFsApplication(data: {
+  disciplineId: number | null;
+  title: string;
+  content: string;
+  createdBy: number | null;
+  sourceRef?: string;
+  tags?: any;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [result] = await db.insert(learningFsApplications).values({
+      disciplineId: data.disciplineId,
+      title: data.title,
+      content: data.content,
+      createdBy: data.createdBy,
+      sourceRef: data.sourceRef ?? null,
+      tags: data.tags ?? null,
+    });
+    return { id: result.insertId };
+  } catch (err) {
+    log.warn({ err: String(err) }, "createFsApplication failed");
+    return null;
+  }
+}
+
+export async function createConnection(data: {
+  fromDefinitionId: number;
+  toDefinitionId: number;
+  relationship: string;
+  createdBy: number | null;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [result] = await db.insert(learningConnections).values({
+      fromDefinitionId: data.fromDefinitionId,
+      toDefinitionId: data.toDefinitionId,
+      relationship: data.relationship ?? null,
+      createdBy: data.createdBy,
+    });
+    return { id: result.insertId };
+  } catch (err) {
+    log.warn({ err: String(err) }, "createConnection failed");
+    return null;
+  }
+}
+
+export async function updateTrackExamOverview(trackId: number, examOverview: any) {
+  const db = await getDb();
+  if (!db) return false;
+  try {
+    await db
+      .update(learningTracks)
+      .set({ examOverview })
+      .where(eq(learningTracks.id, trackId));
+    return true;
+  } catch (err) {
+    log.warn({ err: String(err) }, "updateTrackExamOverview failed");
+    return false;
+  }
+}
+
+export async function updateTrackDiagrams(trackId: number, diagrams: any) {
+  // Store diagrams in the track's examOverview JSON field under a 'diagrams' key
+  // since there's no separate diagrams table
+  const db = await getDb();
+  if (!db) return false;
+  try {
+    const track = await getTrack(trackId);
+    if (!track) return false;
+    const existing = (track.examOverview as any) ?? {};
+    await db
+      .update(learningTracks)
+      .set({ examOverview: { ...existing, diagrams } })
+      .where(eq(learningTracks.id, trackId));
+    return true;
+  } catch (err) {
+    log.warn({ err: String(err) }, "updateTrackDiagrams failed");
+    return false;
+  }
+}
+
+// ─── Hands-Free Study: Exhaustive Content Fetcher (Pass 157) ────────────
+/**
+ * Fetches ALL content types from the Knowledge Explorer for Hands-Free Study.
+ * Returns pre-formatted TTS scripts for each content type.
+ * This replaces the previous shallow approach that only used flashcard heuristics.
+ */
+export async function getHandsFreeContent(opts: {
+  sections: ("definitions" | "formulas" | "cases" | "applications" | "subsections" | "flashcards" | "questions")[];
+  limit?: number;
+  disciplineId?: number;
+  trackId?: number;
+} = { sections: ["definitions", "formulas", "cases", "applications", "subsections", "flashcards", "questions"] }) {
+  const db = await getDb();
+  if (!db) return { definitions: [], formulas: [], cases: [], applications: [], subsections: [], flashcards: [], questions: [] };
+
+  const limit = opts.limit ?? 50;
+  const result: {
+    definitions: { id: number; term: string; definition: string; ttsScript: string }[];
+    formulas: { id: number; name: string; formula: string; variables: any; ttsScript: string }[];
+    cases: { id: number; title: string; content: string; ttsScript: string }[];
+    applications: { id: number; title: string; content: string; ttsScript: string }[];
+    subsections: { id: number; chapterId: number; title: string | null; paragraphs: any; ttsScript: string }[];
+    flashcards: { id: number; term: string; definition: string; ttsScript: string }[];
+    questions: { id: number; prompt: string; explanation: string | null; ttsScript: string }[];
+  } = { definitions: [], formulas: [], cases: [], applications: [], subsections: [], flashcards: [], questions: [] };
+
+  try {
+    // 1. Definitions — the richest glossary content
+    if (opts.sections.includes("definitions")) {
+      const conds: any[] = [eq(learningDefinitions.status, "published")];
+      if (opts.disciplineId) conds.push(eq(learningDefinitions.disciplineId, opts.disciplineId));
+      const defs = await db.select().from(learningDefinitions)
+        .where(and(...conds))
+        .limit(limit);
+      result.definitions = defs.map(d => ({
+        id: d.id,
+        term: d.term,
+        definition: d.definition,
+        ttsScript: hfBuildDefinitionTts(d.term, d.definition),
+      }));
+    }
+
+    // 2. Formulas — actual formula data with variable explanations
+    if (opts.sections.includes("formulas")) {
+      const conds: any[] = [eq(learningFormulas.status, "published" as any)];
+      if (opts.disciplineId) conds.push(eq(learningFormulas.disciplineId, opts.disciplineId));
+      const formulas = await db.select().from(learningFormulas)
+        .where(and(...conds))
+        .limit(limit);
+      result.formulas = formulas.map(f => ({
+        id: f.id,
+        name: f.name,
+        formula: f.formula,
+        variables: f.variables,
+        ttsScript: hfBuildFormulaTts(f.name, f.formula, f.variables),
+      }));
+    }
+
+    // 3. Cases — rich scenario-based content
+    if (opts.sections.includes("cases")) {
+      const conds: any[] = [eq(learningCases.status, "published")];
+      if (opts.disciplineId) conds.push(eq(learningCases.disciplineId, opts.disciplineId));
+      const cases = await db.select().from(learningCases)
+        .where(and(...conds))
+        .limit(limit);
+      result.cases = cases.map(c => ({
+        id: c.id,
+        title: c.title,
+        content: c.content,
+        ttsScript: hfBuildCaseTts(c.title, c.content),
+      }));
+    }
+
+    // 4. FS Applications — practical application content
+    if (opts.sections.includes("applications")) {
+      const conds: any[] = [eq(learningFsApplications.status, "published")];
+      if (opts.disciplineId) conds.push(eq(learningFsApplications.disciplineId, opts.disciplineId));
+      const apps = await db.select().from(learningFsApplications)
+        .where(and(...conds))
+        .limit(limit);
+      result.applications = apps.map(a => ({
+        id: a.id,
+        title: a.title,
+        content: a.content,
+        ttsScript: hfBuildApplicationTts(a.title, a.content),
+      }));
+    }
+
+    // 5. Subsections — the RICHEST educational content (paragraphs + tables)
+    if (opts.sections.includes("subsections")) {
+      let subsections: any[];
+      if (opts.trackId) {
+        const chapters = await db.select({ id: learningChapters.id })
+          .from(learningChapters)
+          .where(eq(learningChapters.trackId, opts.trackId))
+          .orderBy(learningChapters.sortOrder);
+        const chapterIds = chapters.map(c => c.id);
+        if (chapterIds.length > 0) {
+          subsections = await db.select().from(learningSubsections)
+            .where(and(
+              inArray(learningSubsections.chapterId, chapterIds),
+              eq(learningSubsections.status, "published"),
+            ))
+            .orderBy(learningSubsections.sortOrder)
+            .limit(limit);
+        } else {
+          subsections = [];
+        }
+      } else {
+        subsections = await db.select().from(learningSubsections)
+          .where(eq(learningSubsections.status, "published"))
+          .limit(limit);
+      }
+      result.subsections = subsections.map(s => ({
+        id: s.id,
+        chapterId: s.chapterId,
+        title: s.title,
+        paragraphs: s.paragraphs,
+        ttsScript: hfBuildSubsectionTts(s.title, s.paragraphs),
+      }));
+    }
+
+    // 6. Flashcards — term + definition pairs
+    if (opts.sections.includes("flashcards")) {
+      let fcs: any[];
+      if (opts.trackId) {
+        fcs = await db.select().from(learningFlashcards)
+          .where(eq(learningFlashcards.trackId, opts.trackId))
+          .limit(limit);
+      } else {
+        fcs = await db.select().from(learningFlashcards)
+          .where(eq(learningFlashcards.status, "published"))
+          .limit(limit);
+      }
+      result.flashcards = fcs.map(f => ({
+        id: f.id,
+        term: f.term,
+        definition: f.definition,
+        ttsScript: hfBuildFlashcardTts(f.term, f.definition),
+      }));
+    }
+
+    // 7. Practice Questions — prompt + explanation
+    if (opts.sections.includes("questions")) {
+      let qs: any[];
+      if (opts.trackId) {
+        qs = await db.select().from(learningPracticeQuestions)
+          .where(and(
+            eq(learningPracticeQuestions.trackId, opts.trackId),
+            eq(learningPracticeQuestions.status, "published"),
+          ))
+          .limit(limit);
+      } else {
+        qs = await db.select().from(learningPracticeQuestions)
+          .where(eq(learningPracticeQuestions.status, "published"))
+          .limit(limit);
+      }
+      result.questions = qs.map(q => ({
+        id: q.id,
+        prompt: q.prompt,
+        explanation: q.explanation,
+        ttsScript: hfBuildQuestionTts(q.prompt, q.options, q.correctIndex, q.explanation),
+      }));
+    }
+
+    return result;
+  } catch (err) {
+    log.warn({ err: String(err) }, "getHandsFreeContent failed");
+    return result;
+  }
+}
+
+// ─── TTS Script Builders (Pass 157) ─────────────────────────────────────
+
+function hfBuildDefinitionTts(term: string, definition: string): string {
+  const cleanDef = definition.split("\t")[0].trim();
+  if (cleanDef.length < 20) {
+    return `${term}. ${term} stands for ${cleanDef}. This is an important concept in financial services.`;
+  }
+  return `${term}. ${cleanDef}`;
+}
+
+function hfBuildFormulaTts(name: string, formula: string, variables: any): string {
+  let script = `Formula: ${name}. The formula is: ${formula}.`;
+  if (Array.isArray(variables) && variables.length > 0) {
+    script += " Where ";
+    const varDescs = variables.map((v: any) => {
+      const label = v.label || v.name;
+      const unit = v.unit ? ` measured in ${v.unit}` : "";
+      return `${v.name} is ${label}${unit}`;
+    });
+    script += varDescs.join(", ") + ".";
+  }
+  return script;
+}
+
+function hfBuildCaseTts(title: string, content: string): string {
+  let script = `Case Study: ${title}. `;
+  try {
+    const parsed = typeof content === "string" ? JSON.parse(content) : content;
+    if (parsed.scenario) {
+      script += parsed.scenario + " ";
+    }
+    if (parsed.analysis) {
+      script += "Analysis: " + (typeof parsed.analysis === "string" ? parsed.analysis : JSON.stringify(parsed.analysis)) + " ";
+    }
+    if (parsed.keyTakeaways && Array.isArray(parsed.keyTakeaways)) {
+      script += "Key takeaways: " + parsed.keyTakeaways.join(". ") + ".";
+    }
+  } catch {
+    script += content;
+  }
+  return script;
+}
+
+function hfBuildApplicationTts(title: string, content: string): string {
+  return `Financial Services Application: ${title}. ${content}`;
+}
+
+function hfBuildSubsectionTts(title: string | null, paragraphs: any): string {
+  let script = title ? `${title}. ` : "";
+  if (Array.isArray(paragraphs)) {
+    script += paragraphs.join(" ");
+  } else if (typeof paragraphs === "string") {
+    script += paragraphs;
+  }
+  return script || "No content available for this section.";
+}
+
+function hfBuildFlashcardTts(term: string, definition: string): string {
+  const cleanDef = definition.split("\t")[0].trim();
+  return `Flashcard: ${term}. ${cleanDef}`;
+}
+
+function hfBuildQuestionTts(prompt: string, options: any, correctIndex: number | null, explanation: string | null): string {
+  let script = `Practice Question: ${prompt}`;
+  if (Array.isArray(options) && options.length > 0) {
+    const letters = ["A", "B", "C", "D", "E", "F"];
+    script += " Options: " + options.map((opt: any, i: number) => {
+      const text = typeof opt === "string" ? opt : (opt.text ?? opt.label ?? String(opt));
+      return `${letters[i] ?? (i + 1)}: ${text}`;
+    }).join(". ") + ".";
+    if (correctIndex != null && correctIndex >= 0 && correctIndex < options.length) {
+      const correctText = typeof options[correctIndex] === "string" ? options[correctIndex] : (options[correctIndex].text ?? options[correctIndex].label ?? "");
+      script += ` The correct answer is ${letters[correctIndex] ?? (correctIndex + 1)}: ${correctText}.`;
+    }
+  }
+  if (explanation) {
+    script += ` Explanation: ${explanation}`;
+  }
+  return script;
+}

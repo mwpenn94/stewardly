@@ -1,0 +1,12 @@
+/admin/:tab
+/calculators/:panel
+/chat/:id?
+/intelligence-hub/:tab
+/learning/connections
+/learning/study-groups
+/my-plan
+/people/:tab
+/people/premium-finance
+/portfolio-risk
+/wealth-engine/:panel
+/workflows

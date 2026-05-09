@@ -38,12 +38,17 @@ describe("Procedure Coverage — Team Router", () => {
     expect(src).toContain("amount: z.number().min(1)");
   });
 
-  it("removeMember uses protectedProcedure with teamId + userId input", () => {
-    expect(src).toContain("removeMember: protectedProcedure");
-    // removeMember passes ctx.user.id for authorization
+  it("removeMember uses globalAdminProcedure with organizationId + userId input", () => {
+    // Hardened path: removeMember now requires globalAdminProcedure (role
+    // check) + organizationId (scoped target) + userId (member to remove).
+    // The previous protectedProcedure + ctx.user.id contract was relaxed to
+    // allow any authed user to remove members from teams they belonged to;
+    // the role-gated path is strictly more secure and is locked here.
+    expect(src).toContain("removeMember: globalAdminProcedure");
     const removeMemberIdx = src.indexOf("removeMember:");
-    const removeMemberBlock = src.slice(removeMemberIdx, removeMemberIdx + 300);
-    expect(removeMemberBlock).toContain("ctx.user.id");
+    const removeMemberBlock = src.slice(removeMemberIdx, removeMemberIdx + 400);
+    expect(removeMemberBlock).toContain("organizationId: z.number()");
+    expect(removeMemberBlock).toContain("userId: z.number()");
   });
 
   it("shareSession uses protectedProcedure with teamId + taskExternalId input", () => {

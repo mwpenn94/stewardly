@@ -13,7 +13,7 @@ export function useSWUpdate(): void {
       };
 
       toast("Update available", {
-        description: "A new version of Manus is ready.",
+        description: "A new version of Stewardly is ready.",
         duration: Infinity,
         action: {
           label: "Refresh",

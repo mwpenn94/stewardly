@@ -171,7 +171,7 @@ const STORAGE_TIERS = [
     id: "share",
     label: "Tier 2: Share Page",
     icon: Share2,
-    description: "Manus share page with public URL. Persists beyond session but not version-controlled.",
+    description: "Stewardly share page with public URL. Persists beyond session but not version-controlled.",
     color: "text-blue-400",
     bgColor: "bg-blue-500/10",
   },

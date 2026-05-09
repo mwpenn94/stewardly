@@ -2970,7 +2970,30 @@ Do NOT use browser_action to test it — present confidently since the deploy su
     );
     const agentAskedForClarification = /what.*?(content|would you|should|like me|topic|details|information|include)|please.*?(provide|specify|tell me|share)/i.test(finalContent);
 
-    if (wasGenerationRequest && !producedArtifact && !agentAskedForClarification) {
+    // §S.1 input_required detection — if the final message is a question to the user
+    // and the agent stopped without producing an artifact, mark the task as awaiting reply
+    // instead of "completed" so the sidebar surfaces it correctly.
+    const endsWithQuestion = /\?\s*$/.test(finalContent.trim());
+    const needsUserReply = agentAskedForClarification && endsWithQuestion && completedToolCalls === 0;
+
+    if (needsUserReply) {
+      console.log(`[Agent] Final message is a clarifying question — marking task as input_required`);
+      sendSSE(safeWrite, { status: "input_required" });
+      // Persist + notify owner (fire-and-forget; never block stream completion)
+      if (options.taskExternalId) {
+        import("./db").then(({ updateTaskStatus }) =>
+          updateTaskStatus(options.taskExternalId!, "input_required").catch((e: any) =>
+            console.error("[Agent] input_required persist failed:", e.message),
+          ),
+        ).catch(() => { /* db module not available */ });
+        import("./_core/notification").then(({ notifyOwner }) =>
+          notifyOwner({
+            title: "Task awaiting your reply",
+            content: `\"${finalContent.slice(0, 280)}\"`,
+          }).catch(() => { /* notify is best-effort */ }),
+        ).catch(() => { /* notification module not available */ });
+      }
+    } else if (wasGenerationRequest && !producedArtifact && !agentAskedForClarification) {
       // The agent researched ABOUT the format but never produced the artifact
       console.log(`[Agent] Generation request detected but no artifact produced — marking as incomplete`);
       sendSSE(safeWrite, { status: "completed", metadata: { generationIncomplete: true } });

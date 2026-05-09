@@ -34,7 +34,7 @@ const MANUS_VERIFIABLE_IDS = new Set(["github", "microsoft-365", "google-drive",
 /** Tier labels for display */
 const TIER_LABELS: Record<number, { label: string; icon: typeof Shield; color: string; desc: string }> = {
   1: { label: "Direct OAuth", icon: Shield, color: "text-emerald-400", desc: "One-click authorization via provider" },
-  2: { label: "Manus Verify", icon: Fingerprint, color: "text-amber-400", desc: "Verify identity via Manus, then guided token setup" },
+  2: { label: "Stewardly Verify", icon: Fingerprint, color: "text-amber-400", desc: "Verify identity via Stewardly, then guided token setup" },
   3: { label: "Smart PAT", icon: Key, color: "text-blue-400", desc: "Step-by-step personal access token guide" },
   4: { label: "Manual Entry", icon: Globe, color: "text-muted-foreground", desc: "Enter credentials directly" },
 };
@@ -170,7 +170,7 @@ function TieredAuthDialog({
         `Verified as: ${verifiedIdentity.identity} (via ${verifiedIdentity.method})`,
         `Go to github.com/settings/tokens?type=beta`,
         `Click "Generate new token (Fine-grained)"`,
-        `Token name: "Manus Next - ${verifiedIdentity.identity}"`,
+        `Token name: "Stewardly - ${verifiedIdentity.identity}"`,
         `Select repositories and permissions you need`,
         `Copy the token (starts with github_pat_ for fine-grained, or ghp_ for classic) and paste below`,
       ];
@@ -383,7 +383,7 @@ function TieredAuthDialog({
                                   {connector.tokenHelp && (
                                     <a
                                       href={connector.tokenHelp.url}
-                                      target="_blank"
+                                      target="_blank" rel="noopener noreferrer"
                                       rel="noopener noreferrer"
                                       className="inline-flex items-center gap-1 text-primary hover:underline font-medium mt-1"
                                     >
@@ -458,7 +458,7 @@ function TieredAuthDialog({
                               </ol>
                               <a
                                 href={connector.tokenHelp.url}
-                                target="_blank"
+                                target="_blank" rel="noopener noreferrer"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 text-primary hover:underline font-medium mt-1"
                               >
@@ -482,7 +482,7 @@ function TieredAuthDialog({
                               {connector.tokenHelp && (
                                 <a
                                   href={connector.tokenHelp.url}
-                                  target="_blank"
+                                  target="_blank" rel="noopener noreferrer"
                                   rel="noopener noreferrer"
                                   className="inline-flex items-center gap-1 text-primary hover:underline font-medium mt-1"
                                 >
@@ -711,7 +711,7 @@ export default function ConnectorsPage() {
   const manusVerifyMutation = trpc.connector.verifyViaManus.useMutation({
     onSuccess: (data) => {
       if (data.url) {
-        toast.info("Opening Manus verification...");
+        toast.info("Opening Stewardly verification...");
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         if (isMobile) {
           window.location.href = data.url;
@@ -745,7 +745,7 @@ export default function ConnectorsPage() {
       if (connectorId && verifiedIdentity) {
         setVerifiedIdentities(prev => ({
           ...prev,
-          [connectorId]: { identity: verifiedIdentity, method: loginMethod || "Manus Next" },
+          [connectorId]: { identity: verifiedIdentity, method: loginMethod || "Stewardly" },
         }));
         utils.connector.list.invalidate();
         toast.success(`Identity verified: ${verifiedIdentity}`);
@@ -777,7 +777,7 @@ export default function ConnectorsPage() {
     if (manusVerified && identity) {
       setVerifiedIdentities(prev => ({
         ...prev,
-        [manusVerified]: { identity, method: method || "Manus Next" },
+        [manusVerified]: { identity, method: method || "Stewardly" },
       }));
       // Auto-open the connector dialog
       const connector = AVAILABLE_CONNECTORS.find(c => c.id === manusVerified);
@@ -914,7 +914,7 @@ export default function ConnectorsPage() {
     }
     if (hasTier2) {
       return (
-        <span title="Manus Verify available">
+        <span title="Stewardly Verify available">
           <Fingerprint className="w-3.5 h-3.5 text-amber-400" />
         </span>
       );

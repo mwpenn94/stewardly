@@ -123,7 +123,7 @@ export function ConnectorReAuth({ open, onOpenChange, connector, reason }: Conne
 
             <a
               href="https://github.com/settings/personal-access-tokens/new"
-              target="_blank"
+              target="_blank" rel="noopener noreferrer"
               rel="noopener noreferrer"
               className="text-xs text-primary hover:underline flex items-center gap-1"
             >

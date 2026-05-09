@@ -11,6 +11,13 @@ import {
   atlasGoalTasks,
   atlasGoals,
   atlasPlans,
+  integrationConnections,
+  plaidItems,
+  userOrganizationRoles,
+  snapTradeAccounts,
+  snapTradeBrokerageConnections,
+  snapTradePositions,
+  snapTradeUsers,
   bridgeConfigs,
   connectedDevices,
   connectorHealth,
@@ -297,6 +304,17 @@ export const gdprRouter = router({
 
       // Phase 5g: orchestration runs
       await db.delete(orchestrationRuns).where(eq(orchestrationRuns.userId, userId));
+
+      // Phase 5h: Stewardly financial integrations (Plaid + SnapTrade + generic connections)
+      await db.delete(snapTradePositions).where(eq(snapTradePositions.userId, userId));
+      await db.delete(snapTradeAccounts).where(eq(snapTradeAccounts.userId, userId));
+      await db.delete(snapTradeBrokerageConnections).where(eq(snapTradeBrokerageConnections.userId, userId));
+      await db.delete(snapTradeUsers).where(eq(snapTradeUsers.userId, userId));
+      await db.delete(plaidItems).where(eq(plaidItems.userId, userId));
+      await db.delete(integrationConnections).where(eq(integrationConnections.userId, userId));
+
+      // Phase 5i: Stewardly 5-layer role memberships (org_admin/manager/professional/user)
+      await db.delete(userOrganizationRoles).where(eq(userOrganizationRoles.userId, userId));
 
       // Phase 6: user record
       await db.delete(users).where(eq(users.id, userId));

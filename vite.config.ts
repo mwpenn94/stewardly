@@ -155,11 +155,21 @@ const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(
 export default defineConfig({
   plugins,
   resolve: {
-    alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
-    },
+    alias: [
+      // Round 10: redirect any `import 'shiki'` (which loads bundle-full,
+      // dynamic-imports all 237 syntax-highlighter languages, and turns
+      // the dist into 600+ chunks ~30 MB) to bundle-web (which only
+      // bundles the ~32 web-relevant langs). Streamdown's CodeBlock and
+      // our own shikiHighlight both use the same `createHighlighter`
+      // shape so this is a drop-in replacement.
+      { find: /^shiki$/, replacement: "shiki/bundle/web" },
+      // Round 12.2: stub mermaid (2.6 MB) since we don't render diagrams.
+      // Streamdown's diagram code path will get a no-op renderer.
+      { find: /^mermaid$/, replacement: path.resolve(import.meta.dirname, "client", "src", "lib", "mermaid-stub.ts") },
+      { find: "@", replacement: path.resolve(import.meta.dirname, "client", "src") },
+      { find: "@shared", replacement: path.resolve(import.meta.dirname, "shared") },
+      { find: "@assets", replacement: path.resolve(import.meta.dirname, "attached_assets") },
+    ],
   },
   envDir: path.resolve(import.meta.dirname),
   root: path.resolve(import.meta.dirname, "client"),
@@ -167,9 +177,29 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // Round 12.2: cut deploy worker OOM. esbuild minifier uses ~3x less RAM
+    // than terser; sourcemaps were doubling chunk sizes in memory.
+    sourcemap: false,
+    minify: "esbuild",
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Round 12.2: split the heaviest page bundles into their own chunks so
+          // Rollup never holds more than one of them in memory at once during render.
+          if (id.includes('client/src/pages/Calculators.tsx')) return 'page-calculators';
+          if (id.includes('client/src/pages/TaskView.tsx')) return 'page-taskview';
+          if (id.includes('client/src/pages/CodeEditor.tsx')) return 'page-codeeditor';
+          if (id.includes('client/src/pages/MyFinancialTwin.tsx')) return 'page-financialtwin';
+          if (id.includes('client/src/pages/IntelligenceHub.tsx')) return 'page-intelhub';
+          if (id.includes('client/src/pages/admin/')) return 'page-admin';
+          if (id.includes('client/src/pages/learning/')) return 'page-learning';
+          // Mermaid is dynamic-imported by streamdown for diagrams. Force it
+          // into its own chunk so it never lands in the main page chunks.
+          if (id.includes('node_modules/mermaid') || id.includes('node_modules/cytoscape') || id.includes('node_modules/dagre') || id.includes('node_modules/elkjs') || id.includes('node_modules/khroma')) {
+            return 'vendor-mermaid';
+          }
           // KaTeX is large and self-contained — safe to isolate
           if (id.includes('node_modules/katex')) {
             return 'vendor-katex';

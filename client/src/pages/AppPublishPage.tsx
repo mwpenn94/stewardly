@@ -94,9 +94,9 @@ export default function AppPublishPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+        <h2 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
           App Publishing
-        </h1>
+        </h2>
         <p className="text-sm text-muted-foreground mt-1">
           Build, package, and publish your mobile apps to app stores
         </p>

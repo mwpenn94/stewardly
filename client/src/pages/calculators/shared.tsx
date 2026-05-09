@@ -1,0 +1,419 @@
+/* Calculator shared types, small components, and panel props */
+import React from 'react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Info, Download, Loader2 } from 'lucide-react';
+import { sc } from './engine';
+import type { Recommendation, CFResult, PRResult, GRResult, RTResult, TXResult, ESResult, EDResult, HorizonData } from './engine';
+
+/* ═══ SMALL REUSABLE COMPONENTS ═══ */
+export function FormInput({ id, label, value, onChange, type = 'number', prefix, suffix, min, max, step }: {
+  id: string; label: string; value: number | string; onChange: (v: string) => void;
+  type?: string; prefix?: string; suffix?: string; min?: number; max?: number; step?: number;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</Label>
+      <div className="relative">
+        {prefix && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60" aria-hidden="true">{prefix}</span>}
+        <Input id={id} type={type} value={value} onChange={e => onChange(e.target.value)}
+          className={`h-8 text-sm focus-visible:ring-2 focus-visible:ring-primary/50 ${prefix ? 'pl-6' : ''} ${suffix ? 'pr-8' : ''}`}
+          min={min} max={max} step={step}
+          aria-label={label}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const form = (e.target as HTMLElement).closest('.grid');
+              if (form) {
+                const inputs = Array.from(form.querySelectorAll('input, select'));
+                const idx = inputs.indexOf(e.target as Element);
+                if (idx >= 0 && idx < inputs.length - 1) (inputs[idx + 1] as HTMLElement).focus();
+              }
+            }
+          }} />
+        {suffix && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60" aria-hidden="true">{suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
+export function ScoreBadge({ score }: { score: number }) {
+  const s = sc(score);
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold ${s.color}`}>
+      {s.icon} {s.label}
+    </span>
+  );
+}
+
+export function ResultBadge({ label, value, variant }: { label: string; value: string; variant?: string }) {
+  const colorMap: Record<string, string> = {
+    grn: 'bg-green-500/10 text-green-400 border-green-500/30',
+    red: 'bg-red-500/10 text-red-400 border-red-500/30',
+    gld: 'bg-primary/10 text-primary border-primary/30',
+    blu: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+    '': 'bg-background text-foreground/80 border-border',
+  };
+  const cls = colorMap[variant || ''] || colorMap[''];
+  return (
+    <div className={`flex flex-col items-center rounded-lg border px-3 py-2 ${cls}`} role="status" aria-label={`${label}: ${value}`}>
+      <span className="text-[10px] font-medium uppercase tracking-wide opacity-70">{label}</span>
+      <span className="text-sm font-bold">{value}</span>
+    </div>
+  );
+}
+
+export function KPI({ label, value, variant, sub }: { label: string; value: string; variant?: string; sub?: string }) {
+  const colorMap: Record<string, string> = {
+    grn: 'bg-green-500/10 text-green-400 border-green-500/30',
+    red: 'bg-red-500/10 text-red-400 border-red-500/30',
+    gld: 'bg-primary/10 text-primary border-primary/30',
+    blu: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+    '': 'bg-secondary text-foreground/80 border-border',
+  };
+  const cls = colorMap[variant || ''] || colorMap[''];
+  return (
+    <div className={`flex flex-col items-center rounded-lg border px-3 py-2 ${cls}`} role="status" aria-label={`${label}: ${value}${sub ? ` (${sub})` : ''}`}>
+      <span className="text-[10px] font-medium uppercase tracking-wide opacity-70">{label}</span>
+      <span className="text-sm font-bold">{value}</span>
+      {sub && <span className="text-[9px] opacity-60 mt-0.5">{sub}</span>}
+    </div>
+  );
+}
+
+export function ScoreGauge({ pct: pctVal, total, max }: { pct: number; total: number; max: number }) {
+  const r = 40, stk = 10, circ = Math.PI * 2 * r;
+  const dash = circ * pctVal / 100;
+  const color = pctVal >= 80 ? '#16A34A' : pctVal >= 60 ? '#CA8A04' : '#DC2626';
+  return (
+    <div className="flex items-center gap-3" role="meter" aria-valuenow={pctVal} aria-valuemin={0} aria-valuemax={100} aria-label={`Financial health score: ${pctVal}% (${total}/${max} points)`}>
+      <svg width="110" height="110" viewBox="0 0 110 110" aria-hidden="true">
+        <circle cx="55" cy="55" r={r} fill="none" stroke="oklch(0.22 0.02 255)" strokeWidth={stk} />
+        <circle cx="55" cy="55" r={r} fill="none" stroke={color} strokeWidth={stk}
+          strokeDasharray={`${dash.toFixed(1)} ${(circ - dash).toFixed(1)}`}
+          strokeDashoffset="0" transform="rotate(-90 55 55)" strokeLinecap="round"
+          style={{ transition: 'stroke-dasharray .5s' }} />
+        <text x="55" y="52" textAnchor="middle" fontSize="22" fontWeight="700" fill={color}>{pctVal}%</text>
+        <text x="55" y="67" textAnchor="middle" fontSize="8" fill="oklch(0.68 0.014 80)">{total}/{max} points</text>
+      </svg>
+      <div className="text-sm text-muted-foreground leading-relaxed">
+        <b className="text-foreground">{pctVal >= 80 ? 'Strong' : 'Opportunities exist'}</b><br />
+        {pctVal >= 80 ? 'All domains well-positioned' : 'Some domains below target'}
+      </div>
+    </div>
+  );
+}
+
+/* ═══ INLINE CITATION TOOLTIP ═══ */
+/** RefTip — small info icon that shows a citation tooltip on hover.
+ *  `refId` maps to a REFERENCE_CATEGORIES id for deep-link, `text` is the tooltip content. */
+export function RefTip({ text, refId }: { text: string; refId?: string }) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" className="inline-flex items-center align-middle ml-0.5 text-muted-foreground/50 hover:text-primary transition-colors" aria-label="Source info">
+            <Info className="w-3 h-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+          <p>{text}</p>
+          {refId && <p className="mt-1 text-primary/80 text-[10px]">See References → {refId}</p>}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+/* ═══ PILLAR SCORE TOOLTIP ═══ */
+const PILLAR_EXPLANATIONS: Record<string, string> = {
+  'Plan': 'Measures cash flow health, emergency fund adequacy, and debt management. Score 3 = savings rate ≥ 20%, adequate emergency fund.',
+  'Protect': 'Evaluates life insurance coverage vs DIME need, disability income, and key-person/buy-sell coverage for business owners.',
+  'Grow': 'Assesses retirement savings rate, investment growth trajectory, tax optimization, estate planning, and education funding.',
+};
+
+export function PillarTooltip({ pillar }: { pillar: string }) {
+  const explanation = PILLAR_EXPLANATIONS[pillar];
+  if (!explanation) return null;
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" className="inline-flex items-center align-middle ml-1 text-muted-foreground/40 hover:text-primary transition-colors" aria-label={`${pillar} pillar explanation`}>
+            <Info className="w-3 h-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+          <p className="font-semibold mb-1">{pillar} Pillar</p>
+          <p>{explanation}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+/* ═══ SHARED PANEL PROPS TYPE ═══ */
+export interface PanelProps {
+  // Client Profile
+  clientName: string; setClientName: (v: string) => void;
+  age: number; setAge: (v: number) => void;
+  spouseAge: number; setSpouseAge: (v: number) => void;
+  dep: number; setDep: (v: number) => void;
+  income: number; setIncome: (v: number) => void;
+  spouseIncome: number; setSpouseIncome: (v: number) => void;
+  nw: number; setNw: (v: number) => void;
+  savings: number; setSavings: (v: number) => void;
+  retirement401k: number; setRetirement401k: (v: number) => void;
+  mortgage: number; setMortgage: (v: number) => void;
+  debt: number; setDebt: (v: number) => void;
+  existIns: number; setExistIns: (v: number) => void;
+  filing: string; setFiling: (v: string) => void;
+  stateRate: number; setStateRate: (v: number) => void;
+  riskTolerance: string; setRiskTolerance: (v: string) => void;
+  isBiz: boolean; setIsBiz: (v: boolean) => void;
+  // Business
+  bizEntityType: string; setBizEntityType: (v: string) => void;
+  bizRevenue: number; setBizRevenue: (v: number) => void;
+  bizExpenses: number; setBizExpenses: (v: number) => void;
+  bizEmployees: number; setBizEmployees: (v: number) => void;
+  bizSeasonality: string; setBizSeasonality: (v: string) => void;
+  bizRevenueStreams: number; setBizRevenueStreams: (v: number) => void;
+  bizProductMix: string; setBizProductMix: (v: string) => void;
+  bizGrowthRate: number; setBizGrowthRate: (v: number) => void;
+  bizDebtService: number; setBizDebtService: (v: number) => void;
+  bizKeyPerson: boolean; setBizKeyPerson: (v: boolean) => void;
+  bizSuccessionPlan: string; setBizSuccessionPlan: (v: string) => void;
+  bizBuySell: boolean; setBizBuySell: (v: boolean) => void;
+  // Cash Flow
+  housing: number; setHousing: (v: number) => void;
+  transport: number; setTransport: (v: number) => void;
+  food: number; setFood: (v: number) => void;
+  insurancePmt: number; setInsurancePmt: (v: number) => void;
+  debtPmt: number; setDebtPmt: (v: number) => void;
+  otherExp: number; setOtherExp: (v: number) => void;
+  emMonths: number; setEmMonths: (v: number) => void;
+  // Protection
+  replaceYrs: number; setReplaceYrs: (v: number) => void;
+  payoffRate: number; setPayoffRate: (v: number) => void;
+  eduPerChild: number; setEduPerChild: (v: number) => void;
+  finalExp: number; setFinalExp: (v: number) => void;
+  ssBenefit: number; setSsBenefit: (v: number) => void;
+  diPct: number; setDiPct: (v: number) => void;
+  // Growth
+  retireAge: number; setRetireAge: (v: number) => void;
+  monthlySav: number; setMonthlySav: (v: number) => void;
+  infRate: number; setInfRate: (v: number) => void;
+  taxReturn: number; setTaxReturn: (v: number) => void;
+  iulReturn: number; setIulReturn: (v: number) => void;
+  fiaReturn: number; setFiaReturn: (v: number) => void;
+  // Retirement
+  ss62: number; setSs62: (v: number) => void;
+  ss67: number; setSs67: (v: number) => void;
+  ss70: number; setSs70: (v: number) => void;
+  pension: number; setPension: (v: number) => void;
+  withdrawalRate: number; setWithdrawalRate: (v: number) => void;
+  // Tax
+  hsaContrib: number; setHsaContrib: (v: number) => void;
+  charitableGiving: number; setCharitableGiving: (v: number) => void;
+  // Estate
+  grossEstate: number; setGrossEstate: (v: number) => void;
+  exemption: number; setExemption: (v: number) => void;
+  estateGrowth: number; setEstateGrowth: (v: number) => void;
+  giftingAnnual: number; setGiftingAnnual: (v: number) => void;
+  willStatus: string; setWillStatus: (v: string) => void;
+  // Education
+  numChildren: number; setNumChildren: (v: number) => void;
+  avgChildAge: number; setAvgChildAge: (v: number) => void;
+  targetCost: number; setTargetCost: (v: number) => void;
+  eduReturn: number; setEduReturn: (v: number) => void;
+  current529: number; setCurrent529: (v: number) => void;
+  monthly529: number; setMonthly529: (v: number) => void;
+  // Action Plan
+  pace: 'standard' | 'aggressive' | 'gradual'; setPace: (v: 'standard' | 'aggressive' | 'gradual') => void;
+  expandedPhases?: Set<number>; setExpandedPhases?: (v: Set<number>) => void;
+  // Computed results
+  totalIncome: number;
+  scores: Record<string, number>;
+  scorecard: { domains: { name: string; score: number; maxScore: number }[]; pillars: { name: string; domains: string[]; score: number; maxScore: number }[]; overall: number; maxScore: number; pctScore: number };
+  recommendations: Recommendation[];
+  totalAnnualPremium: number;
+  cfResult: CFResult;
+  prResult: PRResult;
+  grResult: GRResult;
+  rtResult: RTResult;
+  txResult: TXResult;
+  esResult: ESResult;
+  edResult: EDResult;
+  horizonData: HorizonData[];
+  // Practice Income Cross-Link
+  practiceIncome: {
+    annualGDC: number;
+    annualAUM: number;
+    annualOverride: number;
+    annualExpanded: number;
+    annualChannelRev: number;
+    grandTotal: number;
+    streamCount: number;
+    items: { name: string; value: number; source: string }[];
+    pnlNetIncome: number;
+    pnlEbitda: number;
+    pnlRevenue: number;
+    monthlyGDC: number;
+    monthlyNet: number;
+  };
+}
+
+/* ═══ INLINE EDITABLE NUMBER ═══ */
+/** InlineEditable — contentEditable number field that looks like a result badge but is editable.
+ *  Matches the HTML reference's inline-editable pattern. */
+export function InlineEditable({ value, onChange, prefix = '$', className = '' }: {
+  value: number; onChange: (v: number) => void; prefix?: string; className?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center font-bold cursor-text border-b border-dashed border-primary/40 hover:border-primary focus-within:border-primary focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:rounded-sm transition-colors ${className}`}
+      contentEditable
+      suppressContentEditableWarning
+      role="textbox"
+      aria-label={`Editable value: ${prefix}${value.toLocaleString()}`}
+      tabIndex={0}
+      onBlur={(e) => {
+        const raw = e.currentTarget.textContent?.replace(/[^0-9.-]/g, '') || '0';
+        const num = parseFloat(raw);
+        if (!isNaN(num)) onChange(num);
+        e.currentTarget.textContent = `${prefix}${value.toLocaleString()}`;
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLElement).blur(); }
+      }}
+    >
+      {prefix}{value.toLocaleString()}
+    </span>
+  );
+}
+
+/* ═══ SUB-DESC TYPOGRAPHY ═══ */
+/** SubDesc — consistent sub-description text style used below panel headings.
+ *  Matches the HTML reference's sub-desc pattern. */
+export function SubDesc({ children }: { children: React.ReactNode }) {
+  return <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{children}</p>;
+}
+
+/* B1: Cross-calculator recommendations shown after each panel result */
+const PANEL_LABELS: Record<string, string> = {
+  cash: 'Cash Flow', protect: 'Protection', grow: 'Growth', retire: 'Retirement',
+  tax: 'Tax Planning', estate: 'Estate', edu: 'Education', advanced: 'Advanced Strategies',
+  bizclient: 'Business Client', costben: 'Strategy Analysis', timeline: 'Action Timeline',
+  recruiting: 'Recruiting', pnl: 'P&L', gdcbrackets: 'GDC & Overrides',
+};
+
+export function CrossCalcRecs({ currentPanel, scores, onNavigate }: { currentPanel: string; scores: Record<string, number>; onNavigate?: (panelId: string, tab?: string) => void }) {
+  const recs: Record<string, { panels: string[]; msg: string }> = {
+    cash: { panels: ['protect', 'retire'], msg: 'Low save rate? Check Protection gap and Retirement projections.' },
+    protect: { panels: ['cash', 'estate'], msg: 'Coverage gap detected. Review Cash Flow for premium capacity and Estate for legacy planning.' },
+    grow: { panels: ['tax', 'retire'], msg: 'Growth projections ready. See Tax Planning for optimization and Retirement for withdrawal strategy.' },
+    retire: { panels: ['grow', 'tax'], msg: 'Retirement timeline set. Check Growth vehicles and Tax strategies to maximize after-tax income.' },
+    tax: { panels: ['grow', 'estate'], msg: 'Tax plan in place. Review Growth for tax-free vehicles and Estate for transfer strategies.' },
+    estate: { panels: ['tax', 'advanced'], msg: 'Estate analysis complete. See Tax Planning for gifting strategies and Advanced for ILIT/CRT options.' },
+    edu: { panels: ['cash', 'grow'], msg: 'Education gap calculated. Check Cash Flow for funding capacity and Growth for 529 alternatives.' },
+    advanced: { panels: ['estate', 'protect'], msg: 'Advanced strategies modeled. Review Estate for integration and Protection for premium financing.' },
+    bizclient: { panels: ['protect', 'estate'], msg: 'Business valuation set. Check Protection for key person and Estate for succession planning.' },
+  };
+  const rec = recs[currentPanel];
+  if (!rec) return null;
+  const lowScores = rec.panels.filter(p => (scores[p] ?? 100) < 70);
+  if (lowScores.length === 0 && Object.values(scores).every(s => s >= 50)) return null;
+  return (
+    <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+      <p className="text-xs font-semibold text-primary mb-1">Related Recommendations</p>
+      <p className="text-xs text-muted-foreground">{rec.msg}</p>
+      {onNavigate && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {rec.panels.map(p => (
+            <button key={p} type="button" onClick={() => onNavigate(p)}
+              className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium">
+              {PANEL_LABELS[p] || p} {(scores[p] ?? 100) < 70 && `(${scores[p] ?? 0}%)`}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* B4: Loading skeleton for scorecard section */
+export function ScorecardSkeleton() {
+  return (
+    <div className="animate-pulse space-y-3">
+      <div className="flex items-center gap-3">
+        <div className="w-[110px] h-[110px] rounded-full bg-muted" />
+        <div className="space-y-2 flex-1">
+          <div className="h-4 bg-muted rounded w-3/4" />
+          <div className="h-3 bg-muted rounded w-1/2" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {[1,2,3].map(i => <div key={i} className="h-16 bg-muted rounded-lg" />)}
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {[1,2,3,4,5,6,7].map(i => <div key={i} className="h-12 bg-muted rounded-lg" />)}
+      </div>
+    </div>
+  );
+}
+
+/* ═══ PDF EXPORT BUTTON ═══ */
+export function ExportPDFButton({ title, subtitle, clientName }: { title: string; subtitle?: string; clientName?: string }) {
+  const [exporting, setExporting] = React.useState(false);
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const { exportPanelToPDF } = await import('./pdfExport');
+      await exportPanelToPDF({ title, subtitle, panelId: title, clientName });
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      // Fallback to print
+      window.print();
+    } finally {
+      setExporting(false);
+    }
+  };
+  return (
+    <button type="button"
+      onClick={handleExport}
+      disabled={exporting}
+      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1 rounded border border-border hover:border-primary/30 disabled:opacity-50"
+      aria-label={`Export ${title} to PDF`}
+    >
+      {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+      {exporting ? 'Exporting…' : 'Export PDF'}
+    </button>
+  );
+}
+
+/* ═══ COMPLEXITY TOGGLE — unified across all hubs ═══ */
+export type ComplexityLevel = 'simple' | 'detailed' | 'expert';
+const COMPLEXITY_LABELS: Record<ComplexityLevel, string> = { simple: 'Quick', detailed: 'Standard', expert: 'Expert' };
+const COMPLEXITY_LEVELS: ComplexityLevel[] = ['simple', 'detailed', 'expert'];
+
+export function ComplexityToggle({ value, onChange, className }: {
+  value: ComplexityLevel; onChange: (v: ComplexityLevel) => void; className?: string;
+}) {
+  return (
+    <div className={`flex bg-muted/40 rounded-md p-0.5 gap-0.5 ${className ?? ''}`} role="tablist" aria-label="Complexity level">
+      {COMPLEXITY_LEVELS.map(lvl => (
+        <button key={lvl} role="tab" aria-selected={value === lvl}
+          className={`px-2.5 py-1 text-xs rounded-sm transition-all font-medium ${
+            value === lvl ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => onChange(lvl)}
+        >
+          {COMPLEXITY_LABELS[lvl]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export type { Recommendation, CFResult, PRResult, GRResult, RTResult, TXResult, ESResult, EDResult, HorizonData };

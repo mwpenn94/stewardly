@@ -1,17 +1,22 @@
 /**
- * AppLayout — Real Manus Sidebar Layout (Cycle 14)
+ * AppLayout — Stewardly glass sidebar
  *
- * Sidebar structure matches real Manus exactly:
- * 1. Fixed header: "manus" logo + collapse button
- * 2. Top nav: New task, Agent, Search (Ctrl+K), Library
- * 3. Scrollable middle: Projects tree (collapsible folders with nested tasks) + All tasks + Share banner
- * 4. Bottom icon bar: settings, grid/apps, monitor + "from ∞ Meta"
+ * Sidebar structure (Cycle 15, glass):
+ * 1. Fixed header: Stewardly logo + collapse button
+ * 2. Universal glass Search field (top, ⌘K) — replaces standalone Search row
+ * 3. Top nav: New task, Agent, Library
+ * 4. Engines drawer (collapsible): nests StewardshipNav (5-engine taxonomy) with internal scroll
+ * 5. Projects drawer (collapsible): folder tree with internal scroll
+ * 6. All Tasks drawer (collapsible): tasks list + filter popover (per-task status icons replace inline pills)
+ * 7. Bottom icon bar: settings, apps, connectors, help, theme — neutral "© Stewardly" footer
  *
- * Auth-aware, mobile drawer, dark theme default
+ * Auth-aware, mobile drawer, dark theme default.
  */
 import { useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from "react";
 import { toast } from "sonner";
-import { useLocation, Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { StewardshipNav } from "@/components/StewardshipNav";
+import { InstalledAppsList } from "@/components/sidebar/InstalledAppsList";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { useTask } from "@/contexts/TaskContext";
@@ -82,7 +87,6 @@ import {
   Moon,
   Keyboard,
   Globe,
-  ChevronDown,
   ChevronRight,
   Pin,
   MoreHorizontal,
@@ -100,10 +104,14 @@ import {
   Home,
   Plug,
   Square,
+  SlidersHorizontal,
+  Zap,
+  MessageCircleQuestion,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ConnectorsSheet, { ConnectorsBadge } from "@/components/ConnectorsSheet";
 import ShareDialog from "@/components/ShareDialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 /* ─── Helper: format relative time ─── */
 function formatTimeAgo(date: Date): string {
@@ -146,6 +154,14 @@ function TaskStatusDot({ status, title }: { status: string; title?: string }) {
   if (status === "stopped") {
     return <Square className="w-3 h-3 text-amber-500/70 shrink-0" />;
   }
+  if (status === "input_required") {
+    return (
+      <MessageCircleQuestion
+        data-testid="task-status-dot-input-required"
+        className="w-3.5 h-3.5 text-primary shrink-0"
+      />
+    );
+  }
   // Type-specific icon based on title keywords (Manus parity)
   const t = (title || "").toLowerCase();
   if (t.includes("research") || t.includes("analyze") || t.includes("find")) {
@@ -185,6 +201,13 @@ function TaskStatusIcon({ status }: { status: string }) {
       return <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />;
     case "stopped":
       return <Square className="w-3 h-3 text-amber-500/70 shrink-0" />;
+    case "input_required":
+      return (
+        <MessageCircleQuestion
+          data-testid="task-status-icon-input-required"
+          className="w-3.5 h-3.5 text-primary shrink-0"
+        />
+      );
     default:
       return <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />;
   }
@@ -507,32 +530,7 @@ function SidebarProjectTree({
   if (projects.length === 0 && !projectsQuery.isLoading) {
     return (
       <div className="px-3 py-2">
-        {/* Projects header with + button even when empty */}
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-            Projects
-          </span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className="p-1 rounded text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-                title="Create new"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => navigate("/projects")}>
-                <FolderOpen className="w-4 h-4 mr-2" />
-                New Project
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { navigate("/"); }}>
-                <FileText className="w-4 h-4 mr-2" />
-                New Task
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        {/* Header is rendered by the parent SidebarDrawer ("Projects") to avoid duplication. */}
         <p className="text-[11px] text-muted-foreground italic px-1">No projects yet</p>
       </div>
     );
@@ -540,33 +538,7 @@ function SidebarProjectTree({
 
   return (
     <div className="px-2 py-1">
-      {/* Section header */}
-      <div className="flex items-center justify-between px-1 mb-0.5">
-        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-          Projects
-        </span>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="p-1 rounded text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-              title="Create new"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => navigate("/projects")}>
-              <FolderOpen className="w-4 h-4 mr-2" />
-              New Project
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { navigate("/"); }}>
-              <FileText className="w-4 h-4 mr-2" />
-              New Task
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
+      {/* Header + create-new actions are provided by the parent SidebarDrawer's `actions` slot. */}
       {/* Loading state */}
       {projectsQuery.isLoading ? (
         <div className="flex items-center justify-center py-3">
@@ -596,6 +568,64 @@ function SidebarProjectTree({
   );
 }
 
+/* ─── SidebarDrawer — collapsible glass shell used by Engines / Projects / All Tasks ───
+   - Renders a <section role="region" aria-labelledby="…"> landmark wrapping its children.
+   - Header is a <button aria-expanded> with chevron + Title-Case label + optional `actions` slot.
+   - Body is mounted only when open, lives inside a glass-styled bordered container.
+   - testId is plumbed onto the section for vitest contracts.                                  */
+interface SidebarDrawerProps {
+  title: string;
+  defaultOpen?: boolean;
+  testId?: string;
+  actions?: ReactNode;
+  children: ReactNode;
+}
+
+function SidebarDrawer({ title, defaultOpen = false, testId, actions, children }: SidebarDrawerProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  const slug = title.toLowerCase().replace(/\s+/g, "-");
+  const headerId = `sidebar-drawer-${slug}-header`;
+  const bodyId = `sidebar-drawer-${slug}-body`;
+  return (
+    <section
+      role="region"
+      aria-labelledby={headerId}
+      data-testid={testId}
+      className="px-2 py-1"
+    >
+      <div className="flex items-stretch gap-1">
+        <button
+          id={headerId}
+          type="button"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={() => setOpen((v) => !v)}
+          className="flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/40 transition-colors"
+        >
+          <ChevronRight
+            className={cn(
+              "w-3.5 h-3.5 transition-transform",
+              open && "rotate-90"
+            )}
+            aria-hidden="true"
+          />
+          <span className="text-sidebar-foreground/80">{title}</span>
+        </button>
+        {actions && (
+          <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+            {actions}
+          </div>
+        )}
+      </div>
+      {open && (
+        <div id={bodyId} className="mt-1">
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /* ─── All Tasks Section (flat list at bottom of scrollable area) ─── */
 interface AllTasksSectionProps {
   tasks: Array<{
@@ -617,6 +647,8 @@ interface AllTasksSectionProps {
   onAssignProject: (taskServerId: number, projectExternalId: string | null) => void;
   statusFilter: string;
   onStatusFilterChange: (filter: string) => void;
+  /** When true, suppress the inline filter-pill row (drawer exposes filter via its actions slot). */
+  hideHeaderPills?: boolean;
 }
 
 function AllTasksSection({
@@ -631,10 +663,12 @@ function AllTasksSection({
   onAssignProject,
   statusFilter,
   onStatusFilterChange,
+  hideHeaderPills = false,
 }: AllTasksSectionProps) {
   const filters = [
     { id: "all", label: "All" },
     { id: "running", label: "Running" },
+    { id: "input_required", label: "Needs reply" },
     { id: "completed", label: "Completed" },
     { id: "error", label: "Error" },
     { id: "favorites", label: "Favorites" },
@@ -651,23 +685,26 @@ function AllTasksSection({
 
   return (
     <div className="px-2 py-1 mt-2">
-      {/* Filter pills — horizontal scrollable like Manus */}
-      <div className="flex items-center gap-1 px-1 mb-2 overflow-x-auto scrollbar-none">
-        {filters.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => onStatusFilterChange(f.id)}
-            className={cn(
-              "px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all shrink-0",
-              statusFilter === f.id
-                ? "bg-[oklch(0.52_0.19_252)] text-white shadow-sm"
-                : "bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {/* Filter pills — horizontal scroll. Hidden when drawer exposes filter via its action slot. */}
+      {!hideHeaderPills && (
+        <div className="flex items-center gap-1 px-1 mb-2 overflow-x-auto scrollbar-none">
+          {filters.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => onStatusFilterChange(f.id)}
+              className={cn(
+                "px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all shrink-0",
+                statusFilter === f.id
+                  // AAA-safe: oklch(0.36 0.18 252) on white → ~7.0:1
+                  ? "bg-[oklch(0.36_0.18_252)] text-white shadow-sm"
+                  : "bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Task list */}
       {filteredTasks.length === 0 ? (
@@ -717,61 +754,6 @@ function AllTasksSection({
         </div>
       )}
     </div>
-  );
-}
-
-/* ─── Apps/Grid dropdown (houses the old SidebarNav items) ─── */
-function AppsGridMenu({ location }: { location: string }) {
-  const { user } = useAuth();
-  const userRole = user?.role || "user";
-
-  const items: Array<{ href: string; label: string; Icon: typeof FolderOpen; color: string }> = useMemo(() => {
-    const all: Array<{ href: string; label: string; Icon: typeof FolderOpen; color: string }> = [
-      { href: "/projects", label: "Projects", Icon: FolderOpen, color: "text-amber-400" },
-      { href: "/library", label: "Library", Icon: BookOpen, color: "text-emerald-400" },
-      { href: "/skills", label: "Skills", Icon: Sparkles, color: "text-yellow-400" },
-      { href: "/schedule", label: "Schedule", Icon: Clock, color: "text-red-400" },
-      { href: "/connectors", label: "Connectors", Icon: Plug, color: "text-muted-foreground" },
-      { href: "/memory", label: "Memory", Icon: Brain, color: "text-pink-400" },
-      { href: "/billing", label: "Billing", Icon: BarChart3, color: "text-yellow-400" },
-      { href: "/help", label: "Help", Icon: HelpCircle, color: "text-red-400" },
-    ];
-    if (userRole === "admin") {
-      all.push(
-        { href: "/webhooks", label: "Webhooks", Icon: ExternalLink, color: "text-indigo-400" },
-        { href: "/data-controls", label: "Data Controls", Icon: AlertCircle, color: "text-orange-400" },
-      );
-    }
-    return all;
-  }, [userRole]);
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          className="p-2 rounded-md text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-          title="Apps & Tools"
-        >
-          <LayoutGrid className="w-4 h-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="center" side="top" className="w-56 max-h-80 overflow-y-auto">
-        {items.map((item) => (
-          <DropdownMenuItem key={item.href} asChild>
-            <Link
-              href={item.href}
-              className={cn(
-                "flex items-center gap-2 w-full",
-                location === item.href && "bg-accent"
-              )}
-            >
-              <item.Icon className={cn("w-4 h-4", item.color)} />
-              <span>{item.label}</span>
-            </Link>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 
@@ -900,6 +882,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return () => {
       document.body.style.overflow = "";
     };
+  }, [mobileDrawerOpen]);
+
+  // R14.20 (UI polish recursion Pass A5): Escape closes the mobile drawer
+  useEffect(() => {
+    if (!mobileDrawerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setMobileDrawerOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [mobileDrawerOpen]);
 
   // Projects query for the All Tasks context menu
@@ -1042,7 +1037,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             className="text-[15px] font-semibold tracking-tight text-sidebar-foreground"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            Manus Next
+            Stewardly
           </span>
         </Link>
         <button
@@ -1063,7 +1058,21 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </button>
       </div>
 
-      {/* ═══ Top Nav Items ═══ */}
+      {/* ═══ Universal glass search field (top-of-sidebar) ═══ */}
+      <div className="px-2 pt-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          aria-label="Open universal search (Ctrl+K)"
+          className="glass-input w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[13px] text-muted-foreground hover:text-sidebar-foreground transition-all"
+        >
+          <Search className="w-3.5 h-3.5 flex-none" />
+          <span className="flex-1 text-left">Search Stewardly</span>
+          <kbd className="text-[10px] px-1.5 py-0.5 rounded bg-sidebar border border-sidebar-border font-mono">⌘K</kbd>
+        </button>
+      </div>
+
+      {/* ═══ Primary Nav (New task / Agent / Library) ═══ */}
       <div className="px-2 pt-2 pb-1 shrink-0 space-y-0.5">
         <button
           onClick={() => {
@@ -1083,66 +1092,135 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <Crosshair className="w-4 h-4 text-muted-foreground" />
           Agent
         </Link>
-        <button
-          onClick={() => {
-            setSearchOpen(true);
-          }}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
-        >
-          <Search className="w-4 h-4 text-muted-foreground" />
-          Search
-          <kbd className="ml-auto text-[10px] text-muted-foreground bg-sidebar-accent px-1.5 py-0.5 rounded font-mono">
-            Ctrl+K
-          </kbd>
-        </button>
         <Link
-          href="/library"
+          href="/hub"
+          data-testid="sidebar-hub-link"
           className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
         >
-          <BookOpen className="w-4 h-4 text-muted-foreground" />
-          Library
+          <LayoutGrid className="w-4 h-4 text-muted-foreground" />
+          Hub
         </Link>
       </div>
 
       {/* ═══ Scrollable Middle Section ═══ */}
       <div
-        className="flex-1 overflow-y-auto overscroll-contain min-h-0 [mask-image:linear-gradient(to_bottom,transparent_0px,black_8px,black_calc(100%-8px),transparent_100%)]"
+        className="flex-1 overflow-y-auto overscroll-contain min-h-0 scroll-mask"
         tabIndex={0}
         role="region"
-        aria-label="Task list"
+        aria-label="Sidebar drawers"
       >
-        {/* Projects Tree */}
+        {/* Sidebar deliberately does NOT contain a Hub drawer, an Engines
+           list, or an Installed-apps list. The Hub is the single nav row
+           above; the full springboard surface lives at /hub and owns ALL
+           of {engines, installed apps, artifacts, files, folders}. */}
+
+        {/* ─ Projects drawer ─ */}
         {isAuthenticated && (
-          <SidebarProjectTree
-            tasks={sidebarTasks}
-            activeTaskId={activeTaskId}
-            onTaskClick={handleTaskClick}
-            onDeleteTask={handleDeleteTask}
-            onFavoriteTask={handleFavoriteTask}
-            onRenameTask={handleRenameTask}
-            onShareTask={handleShareTask}
-            navigate={(path) => {
-              navigate(path);
-              setMobileDrawerOpen(false);
-            }}
-          />
+          <SidebarDrawer
+            title="Projects"
+            defaultOpen={true}
+            testId="projects-drawer"
+            actions={(
+              <button
+                className="p-1 rounded text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                title="New project"
+                aria-label="Create new project"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate("/projects");
+                  setMobileDrawerOpen(false);
+                }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            )}
+          >
+            <div>
+              <SidebarProjectTree
+                tasks={sidebarTasks}
+                activeTaskId={activeTaskId}
+                onTaskClick={handleTaskClick}
+                onDeleteTask={handleDeleteTask}
+                onFavoriteTask={handleFavoriteTask}
+                onRenameTask={handleRenameTask}
+                onShareTask={handleShareTask}
+                navigate={(path) => {
+                  navigate(path);
+                  setMobileDrawerOpen(false);
+                }}
+              />
+            </div>
+          </SidebarDrawer>
         )}
 
-        {/* All Tasks Section */}
+        {/* ─ All Tasks drawer ─ */}
         {isAuthenticated && (
-          <AllTasksSection
-            tasks={sidebarTasks}
-            activeTaskId={activeTaskId}
-            projects={allProjectsMeta}
-            onTaskClick={handleTaskClick}
-            onDeleteTask={handleDeleteTask}
-            onFavoriteTask={handleFavoriteTask}
-            onRenameTask={handleRenameTask}
-            onShareTask={handleShareTask}
-            onAssignProject={handleAssignProject}
-            statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
-          />
+          <SidebarDrawer
+            title="All Tasks"
+            defaultOpen={true}
+            testId="all-tasks-drawer"
+            actions={(
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      "p-1 rounded text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors",
+                      statusFilter !== "all" && "text-primary"
+                    )}
+                    title={`Filter: ${statusFilter === "all" ? "All" : statusFilter}`}
+                    aria-label="Filter tasks by status"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-48 p-1">
+                  <div className="flex flex-col">
+                    {[
+                      { id: "all", label: "All" },
+                      { id: "running", label: "Running" },
+                      { id: "input_required", label: "Needs reply" },
+                      { id: "completed", label: "Completed" },
+                      { id: "error", label: "Needs attention" },
+                      { id: "favorites", label: "Favorites" },
+                      { id: "scheduled", label: "Scheduled" },
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setStatusFilter(f.id)}
+                        className={cn(
+                          "w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors",
+                          statusFilter === f.id
+                            ? "bg-accent text-accent-foreground"
+                            : "hover:bg-accent/50 text-foreground"
+                        )}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+          >
+            <div>
+              <AllTasksSection
+                tasks={sidebarTasks}
+                activeTaskId={activeTaskId}
+                projects={allProjectsMeta}
+                onTaskClick={handleTaskClick}
+                onDeleteTask={handleDeleteTask}
+                onFavoriteTask={handleFavoriteTask}
+                onRenameTask={handleRenameTask}
+                onShareTask={handleShareTask}
+                onAssignProject={handleAssignProject}
+                statusFilter={statusFilter}
+                onStatusFilterChange={setStatusFilter}
+                hideHeaderPills
+              />
+            </div>
+          </SidebarDrawer>
         )}
 
         {/* Bridge Status */}
@@ -1162,9 +1240,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 <Share2 className="w-3.5 h-3.5 text-muted-foreground" />
                 <div>
                   <p className="text-xs font-medium text-sidebar-foreground">
-                    Share Manus with a friend
+                    Share Stewardly with a friend
                   </p>
-                  <p className="text-[10px] text-muted-foreground">Get 500 credits each</p>
+                  <p className="text-[10px] text-muted-foreground">Earn rewards together</p>
                 </div>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1175,7 +1253,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {/* End scrollable middle section */}
 
       {/* ═══ Bottom Icon Bar — pinned at bottom ═══ */}
-      <div className="border-t border-sidebar-border shrink-0 bg-sidebar">
+      <div className="glass-sidebar border-t border-sidebar-border shrink-0 bg-sidebar">
         {authLoading ? (
           <div className="flex items-center justify-center px-3 py-3">
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
@@ -1188,14 +1266,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 onClick={() => navigate("/settings")}
                 className="p-2 rounded-md text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
                 title="Settings"
+                aria-label="Open settings"
               >
                 <Settings className="w-4 h-4" />
               </button>
-              <AppsGridMenu location={location} />
+              {/* R14.28: bottom-bar Hub icon removed — the sidebar already
+                  has a labelled "Hub" entry at the top of the navigation list. */}
               <button
                 onClick={() => setConnectorsSheetOpen(true)}
                 className="p-2 rounded-md text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors relative"
                 title="Connectors"
+                aria-label="Open connectors panel"
               >
                 <Plug className="w-4 h-4" />
               </button>
@@ -1203,6 +1284,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 onClick={() => navigate("/help")}
                 className="p-2 rounded-md text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
                 title="Help & Knowledge Base"
+                aria-label="Open help and knowledge base"
               >
                 <HelpCircle className="w-4 h-4" />
               </button>
@@ -1210,6 +1292,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 onClick={cycleTheme}
                 className="p-2 rounded-md text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
                 title={`Theme: ${preference === "system" ? "System" : preference === "light" ? "Light" : "Dark"}`}
+                aria-label={`Cycle theme — currently ${preference === "system" ? "system" : preference === "light" ? "light" : "dark"}`}
               >
                 {preference === "system" ? (
                   <Monitor className="w-4 h-4" />
@@ -1220,9 +1303,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 )}
               </button>
             </div>
-            {/* Right: "from ∞ Meta" */}
-            <span className="text-[10px] text-muted-foreground select-none">
-              from <span className="font-medium">∞</span> Meta
+            {/* Right: neutral Stewardly mark */}
+            <span className="text-[10px] text-muted-foreground select-none" aria-label="Stewardly">
+              © Stewardly
             </span>
           </div>
         ) : (
@@ -1231,7 +1314,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             className="flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm text-foreground hover:bg-sidebar-accent/50 transition-colors w-full active:scale-[0.98]"
           >
             <LogIn className="w-4 h-4" />
-            Sign in with Manus
+            Sign in to Stewardly
           </button>
         )}
       </div>
@@ -1239,7 +1322,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="h-screen flex overflow-hidden bg-background">
+    <div className="h-screen flex overflow-hidden marble-bg bg-background">
       {/* Skip to main content link for keyboard users */}
       <a
         href="#main-content"
@@ -1261,7 +1344,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <nav
         aria-label="Main navigation"
         className={cn(
-          "hidden md:flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "glass-sidebar hidden md:flex flex-col border-r border-sidebar-border bg-sidebar/70 backdrop-blur-md backdrop-saturate-150 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
           sidebarOpen ? "w-[260px]" : "w-12 overflow-hidden"
         )}
       >
@@ -1302,7 +1385,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <nav
         aria-label="Mobile navigation"
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col w-[300px] max-w-[85vw] bg-sidebar border-r border-sidebar-border transition-transform duration-200 ease-out md:hidden",
+          "glass-modal fixed inset-y-0 left-0 z-50 flex flex-col w-[300px] max-w-[85vw] bg-sidebar/85 backdrop-blur-lg backdrop-saturate-150 border-r border-sidebar-border transition-transform duration-200 ease-out md:hidden",
           mobileDrawerOpen ? "translate-x-0" : "-translate-x-full"
         )}
         style={{
@@ -1325,6 +1408,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         >
           <button
             onClick={() => {
+              // R14.36: Hamburger opens the correct nav surface for the viewport.
+              // Mobile -> mobileDrawerOpen (slide-over Sheet). Desktop -> sidebarOpen.
+              // Revokes the R14.15 mobile redirect-to-/hub which bypassed Projects,
+              // All Tasks, search and settings entry points.
               if (window.innerWidth < 768) {
                 setMobileDrawerOpen(true);
               } else {
@@ -1332,7 +1419,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               }
             }}
             className="p-2 -ml-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors active:scale-95"
-            aria-label="Open sidebar"
+            aria-label="Open navigation menu"
           >
             <Menu className="w-5 h-5 md:hidden" />
             <PanelLeft className="w-4 h-4 hidden md:block" />
@@ -1343,7 +1430,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               className="text-[15px] font-semibold tracking-tight"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              Manus Next
+              Stewardly
             </span>
           </Link>
           {/* ModelSelector */}
@@ -1392,7 +1479,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex-1 min-h-0 flex flex-col overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:pb-0"
+          // R14.25.c: bump mobile bottom padding so the floating + FAB
+          // (right) and Voice ORB (left), both anchored at
+          // calc(4.5rem + safe-area), never sit on top of the last row of
+          // page content. Tab bar (56px) + FAB row (~56px) + clearance
+          // (24px) + safe-area = ~9rem total. Pages are individually free
+          // to add their own pb-* but the global floor is now 9rem.
+          className="flex-1 min-h-0 flex flex-col overflow-hidden pb-[calc(9rem+env(safe-area-inset-bottom,0px))] md:pb-0"
         >
           {children}
         </main>
@@ -1504,9 +1597,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <FolderOpen className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
               Projects
             </CommandItem>
-            <CommandItem value="Library" onSelect={() => { navigate("/library"); setSearchOpen(false); }}>
-              <BookOpen className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-              Library
+            <CommandItem value="Hub" onSelect={() => { navigate("/hub"); setSearchOpen(false); }}>
+              <LayoutGrid className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+              Hub
             </CommandItem>
             <CommandItem value="Skills" onSelect={() => { navigate("/skills"); setSearchOpen(false); }}>
               ⚡ Skills

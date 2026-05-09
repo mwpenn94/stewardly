@@ -1,9 +1,9 @@
 /**
  * ModeToggle — Speed / Quality / Max / Limitless mode switch
  *
- * Speed mode: fewer tool turns, faster responses, concise output (Manus 1.6 Lite aligned)
- * Quality mode: full tool depth, thorough research, detailed output (Manus 1.6 aligned)
- * Max mode: flagship tier — strategic, autonomous, deep chains (Manus 1.6 Max aligned)
+ * Speed mode: fewer tool turns, faster responses, concise output
+ * Quality mode: full tool depth, thorough research, detailed output
+ * Pro mode: flagship tier — strategic, autonomous, deep chains
  * Limitless mode: no constraints — unlimited depth and continuity, runs as long as needed
  */
 import { Zap, Sparkles, Crown, Infinity } from "lucide-react";
@@ -22,21 +22,21 @@ const MODES: { id: AgentMode; label: string; icon: typeof Zap; title: string; ac
     id: "speed",
     label: "Speed",
     icon: Zap,
-    title: "Speed mode: faster, more concise responses (Manus 1.6 Lite aligned)",
+    title: "Lite mode: faster, more concise responses",
     activeClass: "bg-muted text-foreground shadow-sm",
   },
   {
     id: "quality",
     label: "Quality",
     icon: Sparkles,
-    title: "Quality mode: thorough research, detailed responses (Manus 1.6 aligned)",
+    title: "Standard mode: thorough research, detailed responses",
     activeClass: "bg-primary/20 text-primary shadow-sm",
   },
   {
     id: "max",
     label: "Max",
     icon: Crown,
-    title: "Max mode: flagship tier — strategic, autonomous, deep chains (Manus 1.6 Max aligned)",
+    title: "Pro mode: flagship tier — strategic, autonomous, deep chains",
     activeClass: "bg-violet-500/20 text-violet-400 shadow-sm",
   },
   {

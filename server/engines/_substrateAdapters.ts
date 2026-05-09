@@ -19,6 +19,7 @@ import {
   totalCostUsd,
   assertComplianceAdminAllowed,
 } from "./_intent";
+import { routedInvoke } from "./_llmRouting";
 import type {
   Substrate,
   Stewardship,
@@ -95,12 +96,17 @@ export const localClassifier: Classifier = {
  * is wired in (see Phase 4 "clearly appropriate" decisions).          *
  * ------------------------------------------------------------------ */
 
-const stubChatSurface: ChatSurface = {
-  async streamTurn({ message, onToken, onDone, onError }) {
+const liveChatSurface: ChatSurface = {
+  async streamTurn({ message, onToken, onDone, onError, tenantId, threadId }) {
     try {
-      // Foundation's agentStream handles SSE; here we no-op and signal.
-      onToken("");
-      onDone(`Stewardly chat-surface stub received: ${message.slice(0, 80)}`, emptyCost());
+      const resp = await routedInvoke({
+        tenantId: tenantId ?? "anonymous",
+        intentKind: `chat.dispatch:${threadId ?? "adhoc"}`,
+        messages: [{ role: "user", content: message }],
+      });
+      // Token-by-token feel for clients without an SSE source.
+      onToken(resp.text);
+      onDone(resp.text, { ...emptyCost(), apiUsd: resp.costUsd });
     } catch (e) {
       onError(e as Error);
     }
@@ -155,7 +161,7 @@ const stubProposalGenerator: ProposalGenerator = {
 };
 
 export const defaultSubstrate: Substrate = {
-  chatSurface: stubChatSurface,
+  chatSurface: liveChatSurface,
   agenticRuntime: stubAgenticRuntime,
   rag: stubRag,
   embeddings: stubEmbeddings,

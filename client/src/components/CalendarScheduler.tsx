@@ -237,7 +237,7 @@ const CalendarScheduler: React.FC = () => {
         {popover && (
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="absolute z-20 p-4 bg-card border border-border rounded-lg shadow-xl" style={{ left: popover.x, top: popover.y }}>
             <h3 className="font-bold mb-2">Create Event</h3>
-            <input type="text" placeholder="Event Title" className="w-full p-2 rounded bg-background border border-border mb-2" onChange={(e) => setPopover(p => p ? { ...p, event: { ...p.event, title: e.target.value } } : null)} />
+            <input type="text" aria-label="Event title" placeholder="Event Title" className="w-full p-2 rounded bg-background border border-border mb-2" onChange={(e) => setPopover(p => p ? { ...p, event: { ...p.event, title: e.target.value } } : null)} />
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setPopover(null)}>Cancel</Button>
               <Button size="sm" onClick={() => { if (popover.event.title && popover.event.start && popover.event.end) { setEvents([...events, { ...popover.event, id: String(Date.now()) } as CalendarEvent]); } setPopover(null); }}>Save</Button>

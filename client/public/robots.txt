@@ -4,5 +4,5 @@ Disallow: /api/
 Disallow: /share/
 Disallow: /shared/
 
-# Manus Next — Autonomous AI Agent
-# https://manusnext-mlromfub.manus.space
+# Stewardly — Holistic Stewardship Platform
+# https://stewardly.manus.space

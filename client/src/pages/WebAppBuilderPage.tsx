@@ -509,7 +509,7 @@ Generate the complete HTML code now.`,
                       <p className="text-muted-foreground mb-4">Your app is live at:</p>
                       <a
                         href={publishedUrl}
-                        target="_blank"
+                        target="_blank" rel="noopener noreferrer"
                         rel="noopener noreferrer"
                         className="text-primary underline break-all"
                       >

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb, upsertMessageFeedback, getMessageFeedbackForTask } from "../db";
-import { appFeedback } from "../../drizzle/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { appFeedback, messageFeedback } from "../../drizzle/schema";
+import { eq, desc, and, sql } from "drizzle-orm";
 
 export const feedbackRouter = router({
   /** Submit feedback (any authenticated user) */
@@ -85,6 +85,40 @@ export const feedbackRouter = router({
       });
       return { feedback: result?.feedback ?? null };
     }),
+
+  /**
+   * R14.25.a — Aggregated message-feedback stats for Manager/Global Admin
+   * dashboards. Returns thumbs-up/down counts across the message_feedback
+   * table. Shape MUST match what ManagerDashboard.tsx and GlobalAdmin.tsx
+   * destructure: { total, up, down }.
+   */
+  stats: protectedProcedure.query(async ({ ctx }) => {
+    // Manager/admin/owner gate — same surface that mounted this query.
+    const role = ctx.user.role;
+    if (role !== "admin" && role !== "owner" && role !== "manager") {
+      return { total: 0, up: 0, down: 0 };
+    }
+    const db = await getDb();
+    if (!db) return { total: 0, up: 0, down: 0 };
+    try {
+      const rows = await db
+        .select({
+          feedback: messageFeedback.feedback,
+          count: sql<number>`count(*)`.mapWith(Number),
+        })
+        .from(messageFeedback)
+        .groupBy(messageFeedback.feedback);
+      let up = 0;
+      let down = 0;
+      for (const r of rows) {
+        if (r.feedback === "up") up = Number(r.count) || 0;
+        else if (r.feedback === "down") down = Number(r.count) || 0;
+      }
+      return { total: up + down, up, down };
+    } catch {
+      return { total: 0, up: 0, down: 0 };
+    }
+  }),
 
   /** Get all message feedback for a task */
   messageFeedback: protectedProcedure

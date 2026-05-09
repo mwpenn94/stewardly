@@ -47,7 +47,7 @@ export default function ComputerUsePage() {
   const [windows, setWindows] = useState<DesktopWindow[]>([]);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
   const [terminalInput, setTerminalInput] = useState("");
-  const [terminalHistory, setTerminalHistory] = useState<string[]>(["$ Welcome to Manus Desktop Environment"]);
+  const [terminalHistory, setTerminalHistory] = useState<string[]>(["$ Welcome to Stewardly Desktop Environment"]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [editorContent, setEditorContent] = useState("// Start typing or ask the agent to write code...");
   const [browserUrl, setBrowserUrl] = useState("https://manus.im");
@@ -202,7 +202,7 @@ export default function ComputerUsePage() {
         <div className="flex items-center gap-2">
           <Monitor className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-            Manus Desktop
+            Stewardly Desktop
           </span>
         </div>
         <div className="flex items-center gap-2">

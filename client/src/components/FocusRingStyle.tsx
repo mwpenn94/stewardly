@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 const focusRingStyles = `
   @layer utilities {
@@ -34,6 +35,5 @@ export const focusRing = 'focus-visible:ring-2 focus-visible:ring-primary/50 foc
  * This is an alternative to manually adding the class string.
  */
 export const FocusRing = ({ children, className }: { children: React.ReactNode; className?: string }) => {
-  const { cn } = require('@/lib/utils'); // Late import to avoid circular dependency issues
   return <div className={cn('focus-ring', className)}>{children}</div>;
 };

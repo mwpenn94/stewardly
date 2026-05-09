@@ -133,8 +133,14 @@ describe("Cycle 7 Phase B: Sidebar Navigation", () => {
     { href: "/help", label: "Help" },
   ];
 
+  // ⚠️  The 8 items below assert the legacy Manus Next AppsGridMenu (Library /
+  // Projects / Skills / Schedule / Connectors / Memory / Billing / Help). The
+  // Stewardly engine-taxonomy refactor replaced that contract with the canonical
+  // 5-engine drawer (Formational / Relational / Missional / Contextual /
+  // Continuous Improvement). The new contract is asserted by
+  // server/engine-taxonomy.test.ts.
   for (const item of appsGridItems) {
-    it(`Sidebar has "${item.label}" at ${item.href}`, () => {
+    it.skip(`(legacy) Sidebar has "${item.label}" at ${item.href}`, () => {
       expect(LAYOUT_TSX).toContain(`href: "${item.href}"`);
       expect(LAYOUT_TSX).toContain(`label: "${item.label}"`);
     });
@@ -188,7 +194,10 @@ describe("Cycle 7 Phase C: Integration Checks", () => {
     expect(routeMatches.length).toBeGreaterThanOrEqual(25);
   });
 
-  it("Total AppsGridMenu items count is 10+", () => {
+  // ⚠️  Legacy assertion (Manus Next AppsGridMenu had 10+ flat items). The
+  // 5-engine drawer enumerates engines instead. New contract:
+  // server/engine-taxonomy.test.ts.
+  it.skip("(legacy) Total AppsGridMenu items count is 10+", () => {
     const hrefMatches = LAYOUT_TSX.match(/href: "\/[^"]*"/g) || [];
     expect(hrefMatches.length).toBeGreaterThanOrEqual(10);
   });

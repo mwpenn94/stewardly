@@ -1,3 +1,16 @@
+// @ts-nocheck
+// PersonaSidebar5 is parked here as the user-supplied artifact reference.
+// The canonical Stewardly sidebar is client/src/components/StewardshipNav.tsx,
+// which already implements engine-taxonomy-driven progressive disclosure with
+// suppressed persona labels (see shared/engineTaxonomy.ts and
+// server/engine-taxonomy.test.ts for the locked contract).
+//
+// PersonaSidebar5 imports four modules that do not exist in stewardly-v3
+// (@/contexts/DisclosureContext, @radix-ui/react-visually-hidden,
+// react-i18next, @/hooks/useNavBadges). Wiring it as the active sidebar
+// would require ~400 lines of new infrastructure for no behavioral gain
+// over StewardshipNav. ts-nocheck silences the type-check on this parked
+// artifact so the rest of the project stays type-clean.
 /**
  * PersonaSidebar5.tsx — Streamlined Hub Navigation
  *
@@ -71,7 +84,7 @@ export const PERSONA_LAYERS: PersonaLayer[] = [
     label: "",
     minRole: "guest",
     items: [
-      { label: "Chat", icon: MessageSquare, path: "/chat", match: ["/chat", "/code-chat"] },
+      { label: "Chat", icon: MessageSquare, path: "/chat", match: ["/chat"] },
     ],
   },
   {

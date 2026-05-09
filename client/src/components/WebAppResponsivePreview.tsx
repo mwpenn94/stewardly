@@ -161,7 +161,7 @@ export default function WebAppResponsivePreview({
             </button>
             <a
               href={previewUrl}
-              target="_blank"
+              target="_blank" rel="noopener noreferrer"
               rel="noopener noreferrer"
               className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground transition-colors"
               title="Open in new tab"

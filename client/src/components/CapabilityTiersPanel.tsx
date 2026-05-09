@@ -216,7 +216,7 @@ export default function CapabilityTiersPanel() {
                                 {upgrade.setupUrl && (
                                   <a
                                     href={upgrade.setupUrl}
-                                    target="_blank"
+                                    target="_blank" rel="noopener noreferrer"
                                     rel="noopener noreferrer"
                                     className="text-xs text-primary hover:underline flex items-center gap-0.5 shrink-0"
                                   >

@@ -7,7 +7,7 @@
  * - Code viewer with file name header + syntax highlighting (react-syntax-highlighter)
  * - Diff/Original/Modified tab switcher (segmented control) with proper diff (diff library)
  * - Browser preview mode when agent is browsing
- * - Active tool indicator ("Manus is using Editor")
+ * - Active tool indicator ("Stewardly is using Editor")
  * - Progress scrubber with Live indicator
  * - Floating left toolbar (back, interact, keyboard, clipboard, phone, close)
  * - Step navigation (|◀ • Live ▶|)
@@ -503,7 +503,7 @@ export default function SandboxViewer({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <p className="text-sm text-foreground">
-                    <span className="text-muted-foreground">Manus is using </span>
+                    <span className="text-muted-foreground">Stewardly is using </span>
                     <span className="font-medium">{toolInfo.label}</span>
                   </p>
                   <Loader2 className="w-3 h-3 text-primary animate-spin shrink-0" />

@@ -1,5 +1,5 @@
 {
-  "app.title": "Manus Next",
+  "app.title": "Stewardly",
   "app.tagline": "¿Qué puedo hacer por ti?",
   "nav.home": "Inicio",
   "nav.projects": "Proyectos",
@@ -9,7 +9,7 @@
   "nav.newTask": "Nueva Tarea",
   "nav.keyboardShortcuts": "Atajos de Teclado",
   "home.greeting": "Hola.",
-  "home.placeholder": "Dale a Manus Next una tarea para trabajar...",
+  "home.placeholder": "Dale a Stewardly una tarea para trabajar...",
   "home.submit": "Enviar",
   "home.attachFile": "Adjuntar archivo",
   "home.voiceInput": "Entrada de voz",

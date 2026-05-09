@@ -135,7 +135,7 @@ export default function WebAppDeploymentStatus({ projectExternalId }: WebAppDepl
                 {d.url && (
                   <a
                     href={d.url}
-                    target="_blank"
+                    target="_blank" rel="noopener noreferrer"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-2"
                   >

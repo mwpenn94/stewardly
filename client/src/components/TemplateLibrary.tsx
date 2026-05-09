@@ -310,7 +310,8 @@ export default function TemplateLibrary() {
                       4.9 (120 reviews)
                     </span>
                   </div>
-                  <h1 className="text-2xl font-bold text-gray-900 mb-2">{selectedTemplate.title}</h1>
+                  {/* R14.21: demoted from h1 to h2 — list-view header at L141 owns the page h1 */}
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedTemplate.title}</h2>
                   <p className="text-gray-600 leading-relaxed">{selectedTemplate.description}</p>
                 </div>
 

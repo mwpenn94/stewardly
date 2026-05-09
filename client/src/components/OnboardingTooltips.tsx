@@ -29,10 +29,10 @@ interface OnboardingStep {
 const STEPS: OnboardingStep[] = [
   {
     id: "welcome",
-    title: "Welcome to Manus",
-    description: "Your autonomous AI agent that can research, build, design, and automate — all from a single prompt.",
+    title: "Welcome to Stewardly",
+    description: "Holistic stewardship platform spanning your individual finances, your professional practice, your team, your organization, and the platform itself.",
     icon: Sparkles,
-    hint: "Manus works like a skilled colleague: give it a task and it handles the rest.",
+    hint: "Stewardly adapts what you see based on your role — individuals see their finances, professionals see clients, managers see teams, org admins see settings, platform admins see everything.",
   },
   {
     id: "prompt",
@@ -51,21 +51,21 @@ const STEPS: OnboardingStep[] = [
   {
     id: "tools",
     title: "Watch the Agent Work",
-    description: "The agent searches the web, generates images, writes code, creates documents, and builds apps — all autonomously. You'll see each step in real time.",
+    description: "Four wealth engines (UWE, BIE, HE, SCUI) plus general agent tools handle research, planning, integrations, and household analysis — all visible step-by-step in real time.",
     icon: Brain,
     hint: "You can pause or stop the agent at any time if you want to redirect its approach.",
   },
   {
     id: "sidebar",
     title: "Explore the Sidebar",
-    description: "Projects, Memory, Skills, Connectors, Analytics, Schedules, and more. Each section extends what the agent can do for you.",
+    description: "Connections, Portfolio, Economic Data, Households, Team, Organization, Platform Settings, Admin Console — each progressively unlocked by your role.",
     icon: Layers,
     hint: "The Memory section lets the agent remember context across tasks — try adding key facts about your work.",
   },
   {
     id: "build",
     title: "Build & Publish Apps",
-    description: "Use the Web App Builder to create full-stack applications. Preview live, manage settings, and publish to your own domain — all from within Manus.",
+    description: "Use the Web App Builder to create full-stack applications. Preview live, manage settings, and publish to your own domain — all from within Stewardly.",
     icon: Globe,
     hint: "You can iterate on apps by chatting with the agent — no coding required.",
   },

@@ -39,10 +39,16 @@ export function getSessionCookieOptions(
   //       ? hostname
   //       : undefined;
 
+  // First-party auth flow: lax is the right SameSite for OAuth redirects coming
+  // back to our own origin. SameSite=None requires Secure and is rejected by
+  // browsers if Secure isn't set; that's the auth-loop trap. We force Secure=true
+  // in production (always HTTPS behind the platform proxy) and only relax it for
+  // local development.
+  const inProduction = process.env.NODE_ENV === "production";
   return {
     httpOnly: true,
     path: "/",
-    sameSite: "none",
-    secure: isSecureRequest(req),
+    sameSite: "lax",
+    secure: inProduction || isSecureRequest(req),
   };
 }

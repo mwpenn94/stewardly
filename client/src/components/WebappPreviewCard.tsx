@@ -345,7 +345,7 @@ export default function WebappPreviewCard({
             {displayUrl || previewUrl ? (
               <a
                 href={liveUrl || previewUrl}
-                target="_blank"
+                target="_blank" rel="noopener noreferrer"
                 rel="noopener noreferrer"
                 className="text-xs text-primary hover:underline truncate flex-1 font-mono min-w-0"
               >

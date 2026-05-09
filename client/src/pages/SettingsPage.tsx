@@ -499,7 +499,7 @@ export default function SettingsPage() {
                       {isAuthenticated ? (user?.name || "User") : "Guest User"}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {isAuthenticated ? (user?.email || "Signed in via Manus OAuth") : "Sign in to save your tasks and preferences"}
+                      {isAuthenticated ? (user?.email || "Signed in") : "Sign in to save your tasks and preferences"}
                     </p>
                   </div>
                 </div>
@@ -509,7 +509,7 @@ export default function SettingsPage() {
                       href={getLoginUrl()}
                       className="px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity inline-block"
                     >
-                      Sign in with Manus
+                      Sign in to Stewardly
                     </a>
                   </div>
                 ) : (
@@ -1548,7 +1548,7 @@ export default function SettingsPage() {
                 Bridge
               </h2>
               <p className="text-sm text-muted-foreground mb-5">
-                Connect to Manus backend via <code className="text-[11px] bg-muted px-1 py-0.5 rounded">@manus/bridge</code>
+                Connect to the engine bridge via <code className="text-[11px] bg-muted px-1 py-0.5 rounded">@manus/bridge</code>
               </p>
 
               <div className="bg-card border border-border rounded-xl p-6 space-y-5">
@@ -1557,8 +1557,8 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-3">
                     <Unplug className="w-5 h-5 text-primary" />
                     <div>
-                      <p className="text-sm font-medium text-foreground">Manus Bridge</p>
-                      <p className="text-xs text-muted-foreground">WebSocket connection to Manus Hybrid backend</p>
+                      <p className="text-sm font-medium text-foreground">Engine Bridge</p>
+                      <p className="text-xs text-muted-foreground">WebSocket connection to the Stewardly Engine Bridge</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -1633,7 +1633,7 @@ export default function SettingsPage() {
                   )}
                   <a
                     href="/docs/bridge-guide"
-                    target="_blank"
+                    target="_blank" rel="noopener noreferrer"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
@@ -1641,7 +1641,7 @@ export default function SettingsPage() {
                   </a>
                   <a
                     href="https://github.com/mwpenn94/manus-next-hybrid"
-                    target="_blank"
+                    target="_blank" rel="noopener noreferrer"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
@@ -1697,7 +1697,7 @@ export default function SettingsPage() {
                 Feedback & Help
               </h2>
               <p className="text-sm text-muted-foreground mb-5">
-                Help us improve Manus Next. Your feedback shapes the product.
+                Help us improve Stewardly. Your feedback shapes the product.
               </p>
               <div className="space-y-4">
                 {/* Feature Request */}
@@ -1714,7 +1714,7 @@ export default function SettingsPage() {
                   <textarea
                     className="w-full bg-muted/30 border border-border rounded-lg p-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary/30"
                     rows={3}
-                    placeholder="What feature would make Manus Next better for you?"
+                    placeholder="What feature would make Stewardly better for you?"
                   />
                   <button
                     onClick={() => toast.success("Thank you for your feedback!")}
@@ -1754,7 +1754,7 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-foreground">Rate Your Experience</p>
-                      <p className="text-xs text-muted-foreground">How would you rate Manus Next overall?</p>
+                      <p className="text-xs text-muted-foreground">How would you rate Stewardly overall?</p>
                     </div>
                   </div>
                   <div className="flex gap-1">
@@ -2473,7 +2473,7 @@ function SovereignModeCard() {
                 <Globe className="w-4 h-4 text-primary" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-foreground truncate">Manus Next</h3>
+                <h3 className="text-sm font-semibold text-foreground truncate">Stewardly</h3>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <div className={cn(
                     "w-2 h-2 rounded-full shrink-0",
@@ -2501,7 +2501,7 @@ function SovereignModeCard() {
                 {status?.codespace.url && (
                   <a
                     href={status.codespace.url}
-                    target="_blank"
+                    target="_blank" rel="noopener noreferrer"
                     rel="noopener noreferrer"
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors"
                   >
@@ -2512,7 +2512,7 @@ function SovereignModeCard() {
                 {status?.repo.fullName && (
                   <a
                     href={`https://github.com/${status.repo.fullName}`}
-                    target="_blank"
+                    target="_blank" rel="noopener noreferrer"
                     rel="noopener noreferrer"
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors"
                   >

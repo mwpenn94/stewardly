@@ -370,7 +370,8 @@ export default function GuestExplorationMode() {
         <header className="flex justify-between items-center">
           <div className="flex items-center gap-3">
             <Sparkles className="w-7 h-7 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Sovereign AI</h1>
+            {/* R14.21: demoted from h1 to p with role="banner" — hero h1 below at L383 owns the page heading */}
+            <p className="text-2xl font-bold tracking-tight" role="banner">Sovereign AI</p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={() => setIsTransitioning(true)}>Sign In</Button>

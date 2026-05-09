@@ -1,0 +1,290 @@
+import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
+import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { eq } from "drizzle-orm";
+import { users, organizations, userOrganizationRoles } from "../../drizzle/schema";
+import { hashPassword, verifyPassword, validatePasswordStrength, validateEmail } from "../_core/password";
+import { sdk } from "../_core/sdk";
+import { COOKIE_NAME, AUTHENTICATED_SESSION_MS } from "@shared/const";
+import { getSessionCookieOptions } from "../_core/cookies";
+import { nanoid } from "nanoid";
+
+/**
+ * Email/Password Authentication Router
+ * Provides email-based account CRUD operations.
+ *
+ * Sign-up and sign-in return the session token in the response body
+ * so the client can store it in localStorage (the primary auth mechanism).
+ * Cookies are set as a fallback but not relied upon due to proxy stripping.
+ */
+export const emailAuthRouter = router({
+  /**
+   * Sign up with email and password
+   * Creates a new user account, sets session cookie, and returns token in body
+   */
+  signUp: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email("Invalid email address"),
+        password: z.string().min(8, "Password must be at least 8 characters"),
+        name: z.string().min(1, "Name is required").max(256),
+        orgSlug: z.string().optional(), // auto-affiliate from org URL
+        authTier: z.enum(["email", "full"]).optional(), // Tier 1 = email, Tier 2 = full (Google)
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Validate email
+      if (!validateEmail(input.email)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid email address" });
+      }
+
+      // Validate password strength
+      const passwordCheck = validatePasswordStrength(input.password);
+      if (!passwordCheck.valid) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: passwordCheck.errors.join(". ") });
+      }
+
+      const db = await (await import("../db")).getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      // Check if email already exists
+      const existing = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, input.email))
+        .limit(1);
+
+      if (existing.length > 0) {
+        throw new TRPCError({ code: "CONFLICT", message: "An account with this email already exists. Please sign in instead." });
+      }
+
+      // Hash password
+      const passwordHash = await hashPassword(input.password);
+
+      // Generate a unique openId for email-based users
+      const openId = `email_${nanoid(24)}`;
+
+      // Auto-affiliate: look up org by slug if provided
+      let affiliateOrgId: number | null = null;
+      if (input.orgSlug) {
+        const orgs = await db.select().from(organizations).where(eq(organizations.slug, input.orgSlug)).limit(1);
+        if (orgs.length > 0) affiliateOrgId = orgs[0].id;
+      }
+
+      // Create user with auth tier
+      await db.insert(users).values({
+        openId,
+        name: input.name,
+        email: input.email,
+        loginMethod: "email",
+        passwordHash,
+        role: "user",
+        authTier: input.authTier || "email",
+        affiliateOrgId,
+        lastSignedIn: new Date(),
+      });
+
+      // Auto-add to org if affiliated
+      if (affiliateOrgId) {
+        const newUser = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+        if (newUser.length > 0) {
+          await db.insert(userOrganizationRoles).values({
+            userId: newUser[0].id,
+            organizationId: affiliateOrgId,
+            organizationRole: "user",
+          }).onDuplicateKeyUpdate({ set: { organizationRole: "user" } });
+        }
+      }
+
+      // Create session token
+      const sessionToken = await sdk.signSession(
+        { openId, appId: process.env.VITE_APP_ID || "", name: input.name },
+        { expiresInMs: AUTHENTICATED_SESSION_MS }
+      );
+
+      // Set session cookie
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: AUTHENTICATED_SESSION_MS });
+
+      return { success: true, message: "Account created successfully", token: sessionToken };
+    }),
+
+  /**
+   * Sign in with email and password
+   * Verifies credentials, sets session cookie, and returns token in body
+   */
+  signIn: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email("Invalid email address"),
+        password: z.string().min(1, "Password is required"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await (await import("../db")).getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      // Find user by email
+      const result = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, input.email))
+        .limit(1);
+
+      if (!result.length) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+      }
+
+      const user = result[0];
+
+      // Check if user has a password (might be Google-only account)
+      if (!user.passwordHash) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This account uses Google sign-in. Please sign in with Google instead.",
+        });
+      }
+
+      // Verify password
+      const isValid = await verifyPassword(input.password, user.passwordHash);
+      if (!isValid) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+      }
+
+      // Update last signed in
+      await db
+        .update(users)
+        .set({ lastSignedIn: new Date() })
+        .where(eq(users.id, user.id));
+
+      // Create session token
+      const sessionToken = await sdk.signSession(
+        { openId: user.openId, appId: process.env.VITE_APP_ID || "", name: user.name || "" },
+        { expiresInMs: AUTHENTICATED_SESSION_MS }
+      );
+
+      // Set session cookie
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: AUTHENTICATED_SESSION_MS });
+
+      return { success: true, message: "Signed in successfully", token: sessionToken };
+    }),
+
+  /**
+   * Update password (for authenticated users)
+   */
+  updatePassword: protectedProcedure
+    .input(
+      z.object({
+        currentPassword: z.string().optional(),
+        newPassword: z.string().min(8, "Password must be at least 8 characters"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+      const passwordCheck = validatePasswordStrength(input.newPassword);
+      if (!passwordCheck.valid) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: passwordCheck.errors.join(". ") });
+      }
+
+      const db = await (await import("../db")).getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // If user has existing password, verify current password
+      if (ctx.user.passwordHash && input.currentPassword) {
+        const isValid = await verifyPassword(input.currentPassword, ctx.user.passwordHash);
+        if (!isValid) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Current password is incorrect" });
+        }
+      } else if (ctx.user.passwordHash && !input.currentPassword) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Current password is required" });
+      }
+
+      const newHash = await hashPassword(input.newPassword);
+      await db
+        .update(users)
+        .set({ passwordHash: newHash })
+        .where(eq(users.id, ctx.user.id));
+
+      return { success: true, message: "Password updated successfully" };
+    }),
+
+  /**
+   * Update user profile (name, email)
+   */
+  updateProfile: protectedProcedure
+    .input(
+      z.object({
+        name: z.string().min(1).max(256).optional(),
+        email: z.string().email().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+      const db = await (await import("../db")).getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const updateData: Record<string, any> = {};
+      if (input.name) updateData.name = input.name;
+      if (input.email) {
+        if (!validateEmail(input.email)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid email address" });
+        }
+        // Check if email is taken by another user
+        const existing = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, input.email))
+          .limit(1);
+        if (existing.length > 0 && existing[0].id !== ctx.user.id) {
+          throw new TRPCError({ code: "CONFLICT", message: "Email already in use by another account" });
+        }
+        updateData.email = input.email;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await db.update(users).set(updateData).where(eq(users.id, ctx.user.id));
+      }
+
+      return { success: true };
+    }),
+
+  /**
+   * Delete user account
+   * Permanently removes the user and all associated data
+   */
+  deleteAccount: protectedProcedure
+    .input(
+      z.object({
+        confirmPassword: z.string().optional(),
+        confirmText: z.string().refine((val) => val === "DELETE", {
+          message: "Please type DELETE to confirm",
+        }),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+      const db = await (await import("../db")).getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // If user has password, verify it
+      if (ctx.user.passwordHash && input.confirmPassword) {
+        const isValid = await verifyPassword(input.confirmPassword, ctx.user.passwordHash);
+        if (!isValid) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Password is incorrect" });
+        }
+      }
+
+      // Delete user (cascading deletes should handle related data)
+      await db.delete(users).where(eq(users.id, ctx.user.id));
+
+      // Clear session cookie
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.clearCookie(COOKIE_NAME, cookieOptions);
+
+      return { success: true, message: "Account deleted successfully" };
+    }),
+});

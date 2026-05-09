@@ -230,14 +230,17 @@ describe("P35 — UI/UX Manus Alignment", () => {
 });
 
 // ── Branding ──
+// Brand was reskinned from Manus Next to Stewardly. The HTML title +
+// og:title + apple-mobile-web-app-title and AppLayout's sidebar headers
+// all render "Stewardly" — those are the current source-of-truth strings.
 describe("P35 — Branding Consistency", () => {
-  it("HTML title contains Manus", () => {
+  it("HTML title contains Stewardly", () => {
     const html = read("client/index.html");
-    expect(html).toContain("Manus Next");
+    expect(html).toContain("Stewardly");
   });
 
-  it("AppLayout sidebar shows Manus branding", () => {
+  it("AppLayout sidebar shows Stewardly branding", () => {
     const layout = read("client/src/components/AppLayout.tsx");
-    expect(layout).toContain("Manus Next");
+    expect(layout).toContain("Stewardly");
   });
 });

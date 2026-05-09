@@ -767,7 +767,7 @@ export default function WebAppProjectPage() {
             <div className="mb-6">
               <WebAppVersionDiffView />
             </div>
-            <div className="space-y-3" aria-live="polite" aria-label="Deployment history">
+            <div role="region" className="space-y-3" aria-live="polite" aria-label="Deployment history">
               {deploymentsQuery.isLoading && (
                 <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin" /></div>
               )}
@@ -944,8 +944,8 @@ export default function WebAppProjectPage() {
                   <div className="border-t border-border pt-6 space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium">Hide Manus Badge</p>
-                        <p className="text-xs text-muted-foreground">Remove the "Built with Manus" badge from your site</p>
+                        <p className="text-sm font-medium">Hide Stewardly Badge</p>
+                        <p className="text-xs text-muted-foreground">Remove the "Built with Stewardly" badge from your site</p>
                       </div>
                       <Switch onCheckedChange={(v) => toast.success(v ? "Badge hidden" : "Badge visible")} aria-label="Toggle powered-by badge visibility" />
                     </div>

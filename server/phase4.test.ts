@@ -127,8 +127,10 @@ describe("PWA Manifest", () => {
     const content = fs.readFileSync(manifestPath, "utf-8");
     const manifest = JSON.parse(content);
 
-    expect(manifest.name).toBe("Manus Next");
-    expect(manifest.short_name).toBe("Manus Next");
+    // Brand was reskinned from Manus Next to Stewardly. Manifest now
+    // sets both `name` and `short_name` to "Stewardly".
+    expect(manifest.name).toBe("Stewardly");
+    expect(manifest.short_name).toBe("Stewardly");
     expect(manifest.display).toBe("standalone");
     expect(manifest.start_url).toBe("/");
     expect(manifest.icons).toBeDefined();

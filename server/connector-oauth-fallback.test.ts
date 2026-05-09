@@ -24,12 +24,16 @@ describe("Platform Credential Fallback Verification", () => {
     expect(isOAuthSupported("microsoft-365")).toBe(true);
   });
 
-  it("Google Drive OAuth is NOT supported (no platform credentials)", async () => {
+  it("Google Drive OAuth requires CONNECTOR_GOOGLE_* (no platform fallback)", async () => {
     const { isOAuthSupported } = await import("./connectorOAuth");
-    // No platform GOOGLE_CLIENT_ID exists
-    expect(process.env.GOOGLE_CLIENT_ID).toBeFalsy();
-    // So Google Drive OAuth falls back to api_key
-    expect(isOAuthSupported("google-drive")).toBe(false);
+    // Per server/_core/env.ts: Google has no platform-level fallback; only
+    // CONNECTOR_GOOGLE_CLIENT_ID is read. Platform GOOGLE_CLIENT_ID is
+    // intentionally ignored.
+    if (process.env.CONNECTOR_GOOGLE_CLIENT_ID) {
+      expect(isOAuthSupported("google-drive")).toBe(true);
+    } else {
+      expect(isOAuthSupported("google-drive")).toBe(false);
+    }
   });
 
   it("Notion OAuth is NOT supported (no platform credentials)", async () => {

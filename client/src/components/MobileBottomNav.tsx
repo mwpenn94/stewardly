@@ -7,8 +7,8 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
-  Home, ListTodo, CreditCard, MoreHorizontal, X, Search,
-  FolderOpen, BookOpen, Clock, Zap, Plug, Settings, HelpCircle,
+  Home, LayoutGrid, CreditCard, MoreHorizontal, X, Search,
+  FolderOpen, ListTodo, Clock, Zap, Plug, Settings, HelpCircle,
   Brain, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,13 +23,16 @@ interface NavItem {
 
 const PRIMARY_ITEMS: NavItem[] = [
   { path: "/", label: "Home", icon: Home },
-  { path: "/task", label: "Tasks", icon: ListTodo, matchPrefix: true },
+  // Hub replaces the legacy "Tasks" tab in the mobile footer nav. The Hub
+  // is the iOS-Home-Screen-style organizing surface (apps + artifacts +
+  // files). Tasks moved into the More menu for parity.
+  { path: "/hub", label: "Hub", icon: LayoutGrid },
   { path: "/billing", label: "Billing", icon: CreditCard },
 ];
 
 const MORE_ITEMS: NavItem[] = [
+  { path: "/task", label: "Tasks", icon: ListTodo, matchPrefix: true },
   { path: "/projects", label: "Projects", icon: FolderOpen },
-  { path: "/library", label: "Library", icon: BookOpen },
   { path: "/skills", label: "Skills", icon: Zap },
   { path: "/schedule", label: "Schedule", icon: Clock },
   { path: "/connectors", label: "Connectors", icon: Plug },
@@ -59,6 +62,7 @@ export default function MobileBottomNav() {
 
   const isActive = (item: NavItem) => {
     if (item.matchPrefix) return location.startsWith("/task");
+    if (item.path === "/hub") return location === "/hub" || location.startsWith("/hub/");
     return location === item.path;
   };
 
@@ -160,6 +164,7 @@ export default function MobileBottomNav() {
             return (
               <button
                 key={item.path}
+                data-testid={`mobile-nav-${item.label.toLowerCase()}`}
                 onClick={() => {
                   if (item.matchPrefix) {
                     handleTasksClick();
@@ -197,12 +202,12 @@ export default function MobileBottomNav() {
        * Hidden on /task/* pages to prevent overlap with chat input send button.
        * The chat input already has a "+" button for PlusMenu actions.
        */}
-      {!moreOpen && location !== "/" && !location.startsWith("/task/") && (
+      {!moreOpen && location !== "/" && !location.startsWith("/task/") && location !== "/hub" && !location.startsWith("/hub/") && (
         <button
           onClick={() => navigate("/")}
-          className="md:hidden fixed bottom-20 right-4 z-50 w-12 h-12 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center active:scale-90 transition-transform"
+          className="md:hidden fixed right-4 z-50 w-12 h-12 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center active:scale-90 transition-transform"
           aria-label="New task"
-          style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
+          style={{ bottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" }}
         >
           <Plus className="w-5 h-5" />
         </button>

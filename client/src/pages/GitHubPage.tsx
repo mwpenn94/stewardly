@@ -1203,9 +1203,9 @@ export default function GitHubPage() {
             <Github className="w-10 h-10 text-foreground" />
           </div>
 
-          <h1 className="text-2xl font-semibold mb-2" style={{ fontFamily: "var(--font-heading)" }}>
+          <h2 className="text-2xl font-semibold mb-2" style={{ fontFamily: "var(--font-heading)" }}>
             Connect GitHub
-          </h1>
+          </h2>
           <p className="text-muted-foreground text-sm max-w-md mb-8 leading-relaxed">
             Access, search, and organize repos. Track issues, review pull requests,
             browse code, and deploy — all from within Manus.
@@ -1251,7 +1251,7 @@ export default function GitHubPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-heading)" }}>GitHub</h1>
+            <h2 className="text-2xl font-semibold" style={{ fontFamily: "var(--font-heading)" }}>GitHub</h2>
             <p className="text-sm text-muted-foreground mt-1">Manage repositories, code, and deployments</p>
           </div>
           <div className="flex items-center gap-2">

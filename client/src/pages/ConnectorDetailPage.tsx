@@ -64,7 +64,7 @@ import type { ConnectorDef } from "@/components/ConnectorsSheet";
 
 const TIER_LABELS: Record<number, { label: string; icon: typeof Shield; color: string; desc: string }> = {
   1: { label: "Direct OAuth", icon: Shield, color: "text-emerald-400", desc: "One-click authorization via provider" },
-  2: { label: "Manus Verify", icon: Fingerprint, color: "text-amber-400", desc: "Verify identity via Manus, then guided token setup" },
+  2: { label: "Stewardly Verify", icon: Fingerprint, color: "text-amber-400", desc: "Verify identity via Stewardly, then guided token setup" },
   3: { label: "Smart PAT", icon: Key, color: "text-blue-400", desc: "Step-by-step personal access token guide" },
   4: { label: "Manual Entry", icon: Globe, color: "text-muted-foreground", desc: "Enter credentials directly" },
 };
@@ -310,7 +310,7 @@ export default function ConnectorDetailPage() {
   const manusVerifyMutation = trpc.connector.verifyViaManus.useMutation({
     onSuccess: (data) => {
       if (data.url) {
-        toast.info("Opening Manus verification...");
+        toast.info("Opening Stewardly verification...");
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         if (isMobile) {
           window.location.href = data.url;
@@ -457,7 +457,7 @@ export default function ConnectorDetailPage() {
       if (data.type === "connector-manus-verified" && data.connectorId === connectorId) {
         setVerifiedIdentity({
           identity: data.verifiedIdentity,
-          method: data.loginMethod || "Manus Next",
+          method: data.loginMethod || "Stewardly",
         });
         utils.connector.list.invalidate();
         toast.success(`Identity verified: ${data.verifiedIdentity}`);
@@ -489,7 +489,7 @@ export default function ConnectorDetailPage() {
     const identity = params.get("identity");
     const method = params.get("method");
     if (manusVerified && manusVerified === connectorId && identity) {
-      setVerifiedIdentity({ identity, method: method || "Manus Next" });
+      setVerifiedIdentity({ identity, method: method || "Stewardly" });
       setShowAuthSection(true);
       setExpandedTier(3);
       toast.success(`Identity verified: ${identity}`);
@@ -604,7 +604,7 @@ export default function ConnectorDetailPage() {
         `Verified as: ${verifiedIdentity.identity} (via ${verifiedIdentity.method})`,
         `Go to github.com/settings/tokens?type=beta`,
         `Click "Generate new token (Fine-grained)"`,
-        `Token name: "Manus Next - ${verifiedIdentity.identity}"`,
+        `Token name: "Stewardly - ${verifiedIdentity.identity}"`,
         `Select repositories and permissions you need`,
         `Copy the token (starts with github_pat_ for fine-grained, or ghp_ for classic) and paste below`,
       ];
@@ -1020,7 +1020,7 @@ export default function ConnectorDetailPage() {
                                               {authData?.tokenHelp && (
                                                 <a
                                                   href={authData.tokenHelp.url}
-                                                  target="_blank"
+                                                  target="_blank" rel="noopener noreferrer"
                                                   rel="noopener noreferrer"
                                                   className="inline-flex items-center gap-1 text-primary hover:underline font-medium mt-1 text-[11px]"
                                                 >
@@ -1095,7 +1095,7 @@ export default function ConnectorDetailPage() {
                                           </ol>
                                           <a
                                             href={authData.tokenHelp.url}
-                                            target="_blank"
+                                            target="_blank" rel="noopener noreferrer"
                                             rel="noopener noreferrer"
                                             className="inline-flex items-center gap-1 text-primary hover:underline font-medium mt-1 text-[11px]"
                                           >
@@ -1118,7 +1118,7 @@ export default function ConnectorDetailPage() {
                                           {authData?.tokenHelp && (
                                             <a
                                               href={authData.tokenHelp.url}
-                                              target="_blank"
+                                              target="_blank" rel="noopener noreferrer"
                                               rel="noopener noreferrer"
                                               className="inline-flex items-center gap-1 text-primary hover:underline font-medium mt-1 text-[11px]"
                                             >
@@ -1217,13 +1217,13 @@ export default function ConnectorDetailPage() {
             </div>
           )}
 
-          {/* ── Manus Verified Identity (for connected manus_oauth connectors) ── */}
+          {/* ── Stewardly Verified Identity (for connected manus_oauth connectors) ── */}
           {isConnected && authMethod === "manus_oauth" && connectorRecord?.manusVerifiedIdentity && (
             <div className="mb-6">
               <div className="flex items-center gap-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
                 <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-foreground">Manus Verified</p>
+                  <p className="text-xs font-medium text-foreground">Stewardly Verified</p>
                   <p className="text-[11px] text-amber-400 font-medium truncate">{connectorRecord.manusVerifiedIdentity}</p>
                 </div>
               </div>
@@ -1259,7 +1259,7 @@ export default function ConnectorDetailPage() {
                     label="Auth Method"
                     value={
                       authMethod === "oauth" ? "Direct OAuth" :
-                      authMethod === "manus_oauth" ? "Manus Verified" :
+                      authMethod === "manus_oauth" ? "Stewardly Verified" :
                       "Manual / PAT"
                     }
                   />
@@ -1470,7 +1470,7 @@ function DetailLinkRow({ label, href }: { label: string; href: string }) {
   return (
     <a
       href={href}
-      target="_blank"
+      target="_blank" rel="noopener noreferrer"
       rel="noopener noreferrer"
       className="flex items-center justify-between px-4 py-3.5 hover:bg-accent/30 transition-colors"
     >

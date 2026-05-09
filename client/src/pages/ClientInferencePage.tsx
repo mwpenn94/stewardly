@@ -336,9 +336,9 @@ export default function ClientInferencePage() {
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex-1">
-            <h1 className="text-xl font-semibold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+            <h2 className="text-xl font-semibold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
               Client Inference
-            </h1>
+            </h2>
             <p className="text-sm text-muted-foreground">Run AI models locally in your browser — no server required</p>
           </div>
           <div className="flex items-center gap-2">

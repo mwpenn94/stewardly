@@ -68,7 +68,7 @@ export interface Message {
 export interface Task {
   id: string; // Always the server externalId (nanoid) — stable from creation
   title: string;
-  status: "idle" | "running" | "completed" | "error" | "paused" | "stopped";
+  status: "idle" | "running" | "completed" | "error" | "paused" | "stopped" | "input_required";
   messages: Message[];
   createdAt: Date;
   updatedAt: Date;

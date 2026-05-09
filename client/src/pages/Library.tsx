@@ -287,7 +287,7 @@ function PreviewModal({ item, onClose }: { item: any; onClose: () => void }) {
             {hasUrl && (
               <a
                 href={item.url}
-                target="_blank"
+                target="_blank" rel="noopener noreferrer"
                 rel="noopener noreferrer"
                 className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 title="Open in new tab"
@@ -341,7 +341,7 @@ function PreviewModal({ item, onClose }: { item: any; onClose: () => void }) {
               <p className="text-sm text-muted-foreground">Preview not available for this file type</p>
               <a
                 href={item.url}
-                target="_blank"
+                target="_blank" rel="noopener noreferrer"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
               >
@@ -969,7 +969,7 @@ function ArtifactRow({ artifact, index, onNavigate, onPreview, selectMode, selec
           {artifact.url && (
             <a
               href={artifact.url}
-              target="_blank"
+              target="_blank" rel="noopener noreferrer"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
@@ -1136,7 +1136,7 @@ function FileRow({ file, index, onPreview, selectMode, selected, onToggleSelect 
           </a>
           <a
             href={file.url}
-            target="_blank"
+            target="_blank" rel="noopener noreferrer"
             rel="noopener noreferrer"
             className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
             title="Open in new tab"

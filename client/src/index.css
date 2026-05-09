@@ -199,7 +199,6 @@
       padding-right: 1.5rem;
     }
   }
-
   @media (min-width: 1024px) {
     .container {
       padding-left: 2rem;
@@ -207,11 +206,89 @@
       max-width: 1280px;
     }
   }
+
+  /* ═════════════════════════════════════════════════════════════════════
+     STEWARDLY GLASS DESIGN TOKENS — frosted, layered, marble-aware
+     Lifted from stewardly-ai inline patterns and unified into utility classes.
+     - .glass         — generic frosted layer (popovers, sheets)
+     - .glass-card    — cards/panels (border + 80% opacity card bg)
+     - .glass-sidebar — sticky header bars (50% card bg + sm blur)
+     - .glass-overlay — modal scrims (80% bg + sm blur)
+     - .glass-modal   — modal containers (95% card bg + sm blur, no border)
+     - .glass-input   — input fields (60% card bg + sm blur)
+     - .marble-bg     — page-level subtle marble noise underlay
+     ═════════════════════════════════════════════════════════════════════ */
+  .glass {
+    background-color: oklch(from var(--background) l c h / 0.7);
+    backdrop-filter: blur(8px) saturate(140%);
+    -webkit-backdrop-filter: blur(8px) saturate(140%);
+    border: 1px solid oklch(from var(--border) l c h / 0.5);
+  }
+
+  .glass-card {
+    background-color: oklch(from var(--card) l c h / 0.8);
+    backdrop-filter: blur(8px) saturate(140%);
+    -webkit-backdrop-filter: blur(8px) saturate(140%);
+    border: 1px solid oklch(from var(--border) l c h / 0.5);
+    border-radius: var(--radius);
+  }
+
+  .glass-sidebar {
+    background-color: oklch(from var(--card) l c h / 0.5);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-bottom: 1px solid oklch(from var(--border) l c h / 0.4);
+  }
+
+  .glass-overlay {
+    background-color: oklch(from var(--background) l c h / 0.8);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .glass-modal {
+    background-color: oklch(from var(--card) l c h / 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid oklch(from var(--border) l c h / 0.6);
+    border-radius: var(--radius);
+    box-shadow: 0 20px 60px -10px oklch(0% 0 0 / 0.25),
+                0  4px 12px  -2px oklch(0% 0 0 / 0.10);
+  }
+
+  .glass-input {
+    background-color: oklch(from var(--card) l c h / 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid oklch(from var(--border) l c h / 0.6);
+  }
+
+  .glass-input:focus,
+  .glass-input:focus-within {
+    border-color: oklch(from var(--ring) l c h / 0.7);
+    background-color: oklch(from var(--card) l c h / 0.75);
+  }
+
+  /* Marble underlay — subtle veining, theme-aware. */
+  .marble-bg {
+    background-color: var(--background);
+    background-image:
+      radial-gradient(at 20% 10%, oklch(from var(--accent) l c h / 0.08) 0%, transparent 50%),
+      radial-gradient(at 80% 30%, oklch(from var(--primary) l c h / 0.05) 0%, transparent 60%),
+      radial-gradient(at 50% 80%, oklch(from var(--secondary) l c h / 0.06) 0%, transparent 55%);
+    background-attachment: fixed;
+  }
+
+  /* Apply glass treatment to all shadcn primitives uniformly. */
+  [data-radix-popper-content-wrapper] [data-state] {
+    backdrop-filter: blur(8px) saturate(140%);
+    -webkit-backdrop-filter: blur(8px) saturate(140%);
+  }
 }
 
-/* ═══════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════════
    SCROLLBAR — Manus-aligned subtle grey
-   ═══════════════════════════════════════════════════════════════════ */
+   ═════════════════════════════════════════════════════════════════ */
 * {
   scrollbar-width: thin;
   scrollbar-color: oklch(0.75 0.002 260) transparent;
@@ -664,4 +741,468 @@ html, body, #root {
   .h-screen-ios {
     height: 100dvh;
   }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Design-tokens delta — completes the merge of the user-supplied
+   client/src/components/glass/design-tokens.css into the global stylesheet.
+   Items already present elsewhere in this file (thinking-shimmer,
+   progress-bar-manus, scrollbar-none) are intentionally NOT re-defined.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* Font + chat-density scaling (a11y: respects user preference) */
+:root {
+  --font-scale: 1;
+  --chat-density-scale: 1;
+}
+body.font-scale-compact     { --font-scale: 0.9; }
+body.font-scale-default     { --font-scale: 1; }
+body.font-scale-comfortable { --font-scale: 1.1; }
+body.font-scale-large       { --font-scale: 1.2; }
+body.font-scale-xlarge      { --font-scale: 1.35; }
+body.chat-density-compact   { --chat-density-scale: 0.8; }
+body.chat-density-default   { --chat-density-scale: 1; }
+body.chat-density-spacious  { --chat-density-scale: 1.25; }
+
+/* Scroll-mask utility — soft fade at top/bottom of scrollable areas */
+.scroll-mask {
+  mask-image: linear-gradient(to bottom, transparent 0px, black 8px, black calc(100% - 8px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 8px, black calc(100% - 8px), transparent 100%);
+}
+
+/* prose-chat — editorial markdown styling for assistant messages
+   (deliberately plain CSS so we don't depend on @tailwindcss/typography) */
+.prose-chat {
+  max-width: none;
+  font-size: 0.875rem;   /* text-sm */
+  line-height: 1.7;
+  color: oklch(0.8884 0 0);
+}
+.prose-chat p { @apply my-2; color: oklch(0.8884 0 0 / 0.9); }
+.prose-chat h1, .prose-chat h2, .prose-chat h3 {
+  @apply mt-4 mb-2;
+  color: oklch(0.8884 0 0);
+  font-family: var(--font-heading);
+}
+.prose-chat h2 { @apply text-base font-semibold; }
+.prose-chat h3 { @apply text-sm font-semibold; }
+.prose-chat ul, .prose-chat ol { @apply my-2 pl-5 space-y-1; }
+.prose-chat li { color: oklch(0.8884 0 0 / 0.85); }
+.prose-chat li::marker { color: oklch(0.6565 0.1863 251.8 / 0.6); }
+.prose-chat pre {
+  @apply my-3 rounded-xl border;
+  background: oklch(0.2393 0 0 / 0.8);
+  border-color: oklch(0.2768 0 0 / 0.4);
+}
+.prose-chat code { color: oklch(0.6565 0.1863 251.8); @apply text-[13px]; }
+.prose-chat table { @apply my-3 text-xs; }
+.prose-chat th { color: oklch(0.6565 0.1863 251.8 / 0.8); @apply font-semibold; }
+.prose-chat blockquote {
+  @apply my-3 border-l-2 pl-3 italic;
+  border-color: oklch(0.6565 0.1863 251.8 / 0.4);
+  color: oklch(0.7984 0 0);
+}
+.prose-chat a {
+  color: oklch(0.6565 0.1863 251.8);
+  @apply underline transition-colors;
+  text-decoration-color: oklch(0.6565 0.1863 251.8 / 0.3);
+}
+.prose-chat a:hover { text-decoration-color: oklch(0.6565 0.1863 251.8 / 0.6); }
+.prose-chat strong { color: oklch(0.8884 0 0); @apply font-semibold; }
+.prose-chat hr { @apply my-4; border-color: oklch(0.2768 0 0 / 0.3); }
+
+.light .prose-chat { max-width: none; }
+.light .prose-chat p { color: oklch(0.38 0.005 70); }
+.light .prose-chat h1,
+.light .prose-chat h2,
+.light .prose-chat h3 { color: oklch(0.24 0.01 70); }
+.light .prose-chat li { color: oklch(0.38 0.005 70); }
+.light .prose-chat li::marker { color: oklch(0.608 0.1937 254 / 0.6); }
+.light .prose-chat pre {
+  background: oklch(0.9702 0 0);
+  border-color: oklch(0.9219 0 0);
+}
+.light .prose-chat code { color: oklch(0.608 0.1937 254); }
+.light .prose-chat th { color: oklch(0.608 0.1937 254 / 0.8); }
+.light .prose-chat blockquote {
+  border-color: oklch(0.608 0.1937 254 / 0.4);
+  color: oklch(0.5555 0 0);
+}
+.light .prose-chat a {
+  color: oklch(0.608 0.1937 254);
+  text-decoration-color: oklch(0.608 0.1937 254 / 0.3);
+}
+.light .prose-chat strong { color: oklch(0.24 0.01 70); }
+
+/* Typing + thinking dot animations */
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); }
+  30%           { transform: translateY(-4px); }
+}
+.typing-dot { animation: typing-dot 1.4s ease-in-out infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes thinking-dots {
+  0%, 20%   { opacity: 0.2; }
+  40%       { opacity: 1; }
+  60%, 100% { opacity: 0.2; }
+}
+.thinking-dot:nth-child(1) { animation: thinking-dots 1.4s infinite 0s; }
+.thinking-dot:nth-child(2) { animation: thinking-dots 1.4s infinite 0.2s; }
+.thinking-dot:nth-child(3) { animation: thinking-dots 1.4s infinite 0.4s; }
+
+/* Message-enter animation */
+@keyframes message-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-message-in {
+  animation: message-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+
+/* ============================================================
+   R14.14 — Native-grade polish layer (additive only).
+   Refines existing glass material, focus rings, motion, and
+   spacing rhythm without changing the design language.
+   ============================================================ */
+@layer utilities {
+  /* Improved glass surface — softer blur, subtle inner highlight,
+     and a hairline outer border for native-app crispness. */
+  .glass-pane {
+    background: color-mix(in oklab, var(--background, #0b0d12) 70%, transparent);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    border: 1px solid color-mix(in oklab, var(--border, #2a2f3a) 60%, transparent);
+    box-shadow:
+      0 1px 0 0 color-mix(in oklab, white 8%, transparent) inset,
+      0 8px 32px -12px rgba(0, 0, 0, 0.45);
+    border-radius: 14px;
+  }
+  .glass-pane-light {
+    background: color-mix(in oklab, var(--card, #11141b) 55%, transparent);
+    backdrop-filter: blur(10px) saturate(130%);
+    -webkit-backdrop-filter: blur(10px) saturate(130%);
+    border: 1px solid color-mix(in oklab, var(--border, #2a2f3a) 45%, transparent);
+    border-radius: 12px;
+  }
+
+  /* Hover lift used on cards and buttons — feels like a native cell tap. */
+  .lift-on-hover {
+    transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+                box-shadow 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+                border-color 180ms ease;
+  }
+  .lift-on-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px -8px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Visible focus ring that adapts to background. Apply on any
+     interactive element with .ring-accent-focus. */
+  .ring-accent-focus:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--background, #0b0d12),
+      0 0 0 4px var(--accent, oklch(0.78 0.16 80));
+    border-radius: 0.5rem;
+  }
+
+  /* Page transitions — subtle fade+rise. AnimatedRoute already wraps
+     pages, this just upgrades the timing curve. */
+  .page-enter {
+    animation: r1414-page-enter 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  @keyframes r1414-page-enter {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Better text contrast on glass — pair with text-muted-foreground. */
+  .on-glass-muted {
+    color: color-mix(in oklab, var(--foreground, #e7eaf2) 70%, transparent);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+  }
+
+  /* Hairline divider that reads on glass surfaces. */
+  .hairline {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      color-mix(in oklab, var(--border, #2a2f3a) 90%, transparent),
+      transparent
+    );
+  }
+
+  /* 8-pt spacing rhythm helpers (rarely used inline; available when needed). */
+  .stack-2 > * + * { margin-top: 0.5rem; }
+  .stack-3 > * + * { margin-top: 0.75rem; }
+  .stack-4 > * + * { margin-top: 1rem; }
+  .stack-6 > * + * { margin-top: 1.5rem; }
+
+  /* Reduce motion: respect users who prefer it. */
+  @media (prefers-reduced-motion: reduce) {
+    .lift-on-hover, .page-enter { transition: none !important; animation: none !important; }
+  }
+}
+
+/* Slightly tighter, clearer focus state on existing shadcn buttons globally
+   (only when the accent ring would otherwise be invisible on glass). */
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px color-mix(in oklab, var(--background, #0b0d12) 100%, transparent),
+    0 0 0 4px color-mix(in oklab, var(--accent, oklch(0.78 0.16 80)) 80%, transparent);
+}
+
+
+/* R14.15 — hide scrollbar on horizontal-scroll strips (e.g. mobile tab bars)
+ * while preserving scrollability. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+
+/* ════════════════════════════════════════════════════════════════════
+   R14.16 — Recursive UI polish layer (additive, opt-in)
+   Each pass appends new utilities; existing ones above are not touched.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Pass 1 — opt-in specular highlight wrapper for any glass surface.
+   Use as `<div className="glass-card glass-spec">…</div>` to add the
+   subtle top inner highlight + bottom shadow you see on native macOS/iOS
+   glass slabs. No effect when the parent isn't a glass surface. */
+.glass-spec {
+  position: relative;
+  box-shadow:
+    inset 0 1px 0 0 color-mix(in oklab, white 14%, transparent),
+    inset 0 -1px 0 0 color-mix(in oklab, black 18%, transparent),
+    0 6px 24px -10px color-mix(in oklab, black 35%, transparent);
+}
+.glass-spec::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% -20%,
+    color-mix(in oklab, white 8%, transparent) 0%,
+    transparent 60%
+  );
+}
+:root:not(.dark) .glass-spec {
+  box-shadow:
+    inset 0 1px 0 0 color-mix(in oklab, white 60%, transparent),
+    inset 0 -1px 0 0 color-mix(in oklab, black 6%, transparent),
+    0 6px 24px -12px color-mix(in oklab, black 12%, transparent);
+}
+
+
+/* Pass 2 — tactile press utility (pairs with .lift-on-hover).
+   Native iOS/macOS press: instant visual feedback, eased release. */
+.pressable {
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter   180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+@media (hover: hover) {
+  .pressable:hover { transform: translateY(-1px); }
+}
+.pressable:active {
+  transform: translateY(0) scale(0.985);
+  filter: brightness(0.96);
+  transition-duration: 60ms;
+}
+.pressable:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+
+/* Pass 3 — typographic rhythm helpers (additive; do not redefine h1-h6).
+   .text-headline    — marketing display headings; ultra-tight tracking
+   .text-eyebrow     — small caps lead-in label
+   .text-numeric     — tabular-nums + lining figures for stats/counters
+*/
+.text-headline {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+.text-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+.text-numeric {
+  font-feature-settings: "tnum" 1, "lnum" 1, "ss01" 1;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+
+/* Pass 4 — overlay scrollbar that harmonizes with glass surfaces.
+   Use as `<div className="scrollbar-glass overflow-y-auto">…</div>` */
+.scrollbar-glass {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent;
+}
+.scrollbar-glass::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-glass::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-glass::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, var(--foreground) 22%, transparent);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+.scrollbar-glass:hover::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, var(--foreground) 38%, transparent);
+}
+
+
+/* Pass 5 — coherent elevation scale (.elev-1 .. .elev-4).
+   Light theme uses near-black colored shadows; dark theme uses solid
+   black + ring of light at top edge for separation on dark surfaces. */
+.elev-1 { box-shadow: 0 1px 2px -1px color-mix(in oklab, black 12%, transparent); }
+.elev-2 { box-shadow:
+  0 2px 4px -2px color-mix(in oklab, black 14%, transparent),
+  0 4px 12px -6px color-mix(in oklab, black 12%, transparent); }
+.elev-3 { box-shadow:
+  0 4px 8px -4px color-mix(in oklab, black 18%, transparent),
+  0 12px 32px -10px color-mix(in oklab, black 18%, transparent); }
+.elev-4 { box-shadow:
+  0 8px 16px -8px color-mix(in oklab, black 24%, transparent),
+  0 24px 64px -16px color-mix(in oklab, black 24%, transparent); }
+.dark .elev-1 { box-shadow:
+  inset 0 1px 0 0 color-mix(in oklab, white 6%, transparent),
+  0 1px 2px -1px black; }
+.dark .elev-2 { box-shadow:
+  inset 0 1px 0 0 color-mix(in oklab, white 6%, transparent),
+  0 2px 8px -2px color-mix(in oklab, black 60%, transparent); }
+.dark .elev-3 { box-shadow:
+  inset 0 1px 0 0 color-mix(in oklab, white 7%, transparent),
+  0 8px 24px -8px color-mix(in oklab, black 72%, transparent); }
+.dark .elev-4 { box-shadow:
+  inset 0 1px 0 0 color-mix(in oklab, white 8%, transparent),
+  0 24px 64px -16px color-mix(in oklab, black 80%, transparent); }
+
+
+/* Pass 7 — opt-in focus halo with offset glow.
+   Use as `<button className="focus-halo">…</button>` for high-emphasis controls. */
+.focus-halo:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--ring) 18%, transparent);
+}
+
+
+/* Pass 8 — clean disabled state for glass surfaces.
+   Drops shadow, desaturates, lowers contrast so disabled controls don't
+   read as "broken with murky background" on frosted backdrops. */
+.disabled-glass[disabled],
+.disabled-glass[aria-disabled="true"] {
+  opacity: 0.55;
+  filter: saturate(0.7);
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+
+
+/* Pass 9 — eased disclosure chevron.
+   Apply on the chevron icon inside any `[data-state]` parent; rotates 90°
+   on open with native-feeling ease. */
+[data-state="closed"] > .disclosure-chevron,
+[data-state="open"] > .disclosure-chevron {
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+[data-state="open"] > .disclosure-chevron {
+  transform: rotate(90deg);
+}
+
+
+/* Pass 10 — native list-row with leading-edge accent.
+   Use as `<li className="list-row">` for sidebars, lookup popovers, etc.
+   Add `.is-active` for selected state. */
+.list-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--foreground);
+  transition: background-color 140ms ease;
+}
+.list-row:hover {
+  background-color: color-mix(in oklab, var(--accent) 60%, transparent);
+}
+.list-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 160ms ease;
+}
+.list-row.is-active {
+  background-color: color-mix(in oklab, var(--accent) 90%, transparent);
+  font-weight: 600;
+}
+.list-row.is-active::before {
+  background: var(--ring);
+}
+
+
+/* Pass A6 — empty-state helper.
+   Use as `<div className="empty-state"><Icon/><p>No items yet</p><Button>Create</Button></div>` */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  color: var(--muted-foreground);
+}
+.empty-state > svg,
+.empty-state > [data-icon] {
+  width: 32px;
+  height: 32px;
+  opacity: 0.6;
+}
+.empty-state > p { font-size: 13px; max-width: 38ch; line-height: 1.45; }
+
+
+/* Pass A9/A12/A14 — micro-polish batch */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+::selection {
+  background-color: color-mix(in oklab, var(--ring) 28%, transparent);
+  color: var(--foreground);
+}
+::-moz-selection {
+  background-color: color-mix(in oklab, var(--ring) 28%, transparent);
+  color: var(--foreground);
+}
+
+a[href]:not(.no-underline-offset) {
+  text-underline-offset: 3px;
+  text-decoration-skip-ink: auto;
 }

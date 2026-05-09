@@ -6,6 +6,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
+import { registerGuestSessionRoutes } from "./guestSession";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
@@ -415,6 +416,7 @@ async function startServer() {
   registerStorageProxy(app);
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+  registerGuestSessionRoutes(app);
 
   // ── OG Image endpoint for shared tasks ──
   app.get("/api/og-image/:token", async (req, res) => {
@@ -941,6 +943,90 @@ async function startServer() {
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Upload failed" });
+    }
+  });
+
+  // ── Voice transcription endpoint — used by ManusNextChat's VoiceOrb.
+  // The frontend captures mic audio via MediaRecorder, POSTs the resulting
+  // blob here as multipart/form-data, and we (a) auth, (b) push the bytes
+  // to storage, (c) hand the public URL to the Whisper helper, (d) return
+  // the transcript text. This avoids forcing every client to do its own
+  // S3 upload before transcription.
+  app.post("/api/voice/transcribe", async (req, res) => {
+    try {
+      const { sdk: sdkInstance } = await import("./sdk");
+      const user = await sdkInstance
+        .authenticateRequest(req)
+        .catch(() => null);
+      if (!user) {
+        return res
+          .status(401)
+          .json({ error: "Authentication required for voice transcription" });
+      }
+      const { storagePut } = await import("../storage");
+      const { transcribeAudio } = await import("./voiceTranscription");
+      const chunks: Buffer[] = [];
+      req.on("data", (c: Buffer) => chunks.push(c));
+      req.on("end", async () => {
+        try {
+          const body = Buffer.concat(chunks);
+          // 16MB upper bound matches the Whisper helper's documented limit.
+          if (body.length > 16 * 1024 * 1024) {
+            return res
+              .status(413)
+              .json({ error: "Audio exceeds 16MB transcription limit." });
+          }
+          const contentType =
+            (req.headers["content-type"] as string) || "audio/webm";
+          // The client sends a RAW audio blob (not multipart), with the
+          // Content-Type matching the actual recorded container, AND a
+          // ?ext=<ext> query param naming a Whisper-supported extension.
+          // We trust ?ext when present (covers mp4/m4a, where the
+          // Content-Type alone is ambiguous), else fall back to sniffing.
+          const allowedExts = new Set([
+            "flac", "m4a", "mp3", "mp4", "mpeg", "mpga",
+            "oga", "ogg", "wav", "webm",
+          ]);
+          const queryExt =
+            typeof req.query?.ext === "string" ? req.query.ext : "";
+          const sniffed = contentType.includes("wav")
+            ? "wav"
+            : contentType.includes("mp4") || contentType.includes("aac")
+              ? "m4a"
+              : contentType.includes("mp3")
+                ? "mp3"
+                : contentType.includes("ogg")
+                  ? "ogg"
+                  : contentType.includes("m4a")
+                    ? "m4a"
+                    : "webm";
+          const ext = allowedExts.has(queryExt) ? queryExt : sniffed;
+          const fileKey = `voice/${user.id}/${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}.${ext}`;
+          const { url } = await storagePut(fileKey, body, contentType);
+          const result = await transcribeAudio({ audioUrl: url });
+          // The helper returns a discriminated union of WhisperResponse | TranscriptionError.
+          // We narrow on the `error` discriminator so TS sees the success branch.
+          if ("error" in result) {
+            return res
+              .status(502)
+              .json({ error: result.error || "Transcription failed" });
+          }
+          res.json({
+            text: result.text ?? "",
+            language: result.language,
+            segments: result.segments,
+          });
+        } catch (err: any) {
+          console.error("[Voice] transcription error:", err);
+          res
+            .status(500)
+            .json({ error: err.message || "Transcription failed" });
+        }
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Transcription failed" });
     }
   });
 

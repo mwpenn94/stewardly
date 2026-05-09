@@ -513,25 +513,14 @@ export default function Home() {
                 />
               </div>
             </div>
-            {/* Right side: mic + send */}
+            {/* Right side: mic + send (R14.34a — removed non-functional Sparkles
+                recursive-optimization toggle that confused users; voice mic is
+                the primary intuitive input affordance now) */}
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
               <VoiceMicButton
                 isAuthenticated={isAuthenticated}
                 onTranscript={(text) => setInput(prev => prev ? prev + " " + text : text)}
               />
-              <button
-                onClick={() => setTaskRecursiveOpt(!taskRecursiveOpt)}
-                className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center transition-all",
-                  taskRecursiveOpt
-                    ? "bg-primary/20 text-primary border border-primary/40"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                )}
-                title={taskRecursiveOpt ? "Recursive Optimization: ON" : "Recursive Optimization: OFF"}
-                aria-label="Toggle recursive optimization"
-              >
-                <Sparkles className="w-4 h-4" />
-              </button>
               <button
                 onClick={handleSubmit}
                 disabled={!input.trim() && pendingFiles.length === 0}

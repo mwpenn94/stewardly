@@ -589,7 +589,7 @@ export default function ImageLightbox({
           </button>
           <a
             href={currentUrl}
-            target="_blank"
+            target="_blank" rel="noopener noreferrer"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
             className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"

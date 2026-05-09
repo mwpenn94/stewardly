@@ -1,9 +1,9 @@
 /**
  * AgentPresenceIndicator — Unified real-time presence system
  *
- * Deeply aligned with Manus's visual language:
+ * Deeply aligned with stewardship visual language:
  * - Inline colored action badges (verb + detail)
- * - "Manus is using [Tool]" header with live pulse
+ * - "Stewardly is using [Tool]" header with live pulse
  * - Smooth state transitions between Thinking → Tool Use → Generating
  * - Contextual descriptions for each tool action
  *
@@ -195,7 +195,7 @@ function ThinkingPresence({ knowledgeRecalled, connectorContext }: { knowledgeRe
       </div>
       <div className="flex items-center gap-2">
         <span className="text-sm text-foreground">
-          <span className="text-muted-foreground">Manus is </span>
+          <span className="text-muted-foreground">Stewardly is </span>
           <span className="font-medium">thinking</span>
         </span>
         <LivePulseDot color="bg-purple-400" />
@@ -235,7 +235,7 @@ function GeneratingPresence() {
       </div>
       <div className="flex items-center gap-2">
         <span className="text-sm text-foreground">
-          <span className="text-muted-foreground">Manus is </span>
+          <span className="text-muted-foreground">Stewardly is </span>
           <span className="font-medium">writing</span>
         </span>
         <LivePulseDot color="bg-violet-400" />
@@ -270,7 +270,7 @@ function ToolActivePresence({ action }: { action: AgentAction }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-sm text-foreground">
-            <span className="text-muted-foreground">Manus is using </span>
+            <span className="text-muted-foreground">Stewardly is using </span>
             <span className="font-medium">{meta.label}</span>
           </span>
           <LivePulseDot color={meta.color.replace("text-", "bg-")} />

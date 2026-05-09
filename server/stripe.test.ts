@@ -49,45 +49,46 @@ describe("Stripe Integration", () => {
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_mock123";
   });
 
-  describe("Products", () => {
-    it("lists all available products", async () => {
+  describe("Products (Stewardly tier catalog)", () => {
+    it("lists all four Stewardly tier products with tier + features", async () => {
       const { listProducts } = await import("./stripe");
       const products = listProducts();
       expect(products).toHaveLength(4);
-      expect(products[0]).toHaveProperty("id", "pro_monthly");
-      expect(products[0]).toHaveProperty("price", 39);
-      expect(products[0]).toHaveProperty("currency", "usd");
-      expect(products[0]).toHaveProperty("mode", "subscription");
-      expect(products[0]).toHaveProperty("interval", "month");
+      const tiers = products.map((p: any) => p.tier).sort();
+      expect(tiers).toEqual(["individual", "manager", "organization", "professional"]);
+      for (const p of products) {
+        expect(p).toHaveProperty("tier");
+        expect(p).toHaveProperty("features");
+        expect(Array.isArray((p as any).features)).toBe(true);
+        expect(p.mode).toBe("subscription");
+        expect(p.interval).toBe("month");
+      }
     });
 
-    it("includes one-time payment products", async () => {
-      const { listProducts } = await import("./stripe");
-      const products = listProducts();
-      const credits = products.find((p: any) => p.id === "credits_100");
-      expect(credits).toBeDefined();
-      expect(credits!.mode).toBe("payment");
-      expect(credits!.price).toBe(10);
-    });
-
-    it("product catalog has correct pricing", async () => {
+    it("product catalog has the four Stewardly tier prices", async () => {
       const { PRODUCTS } = await import("./products");
       expect(PRODUCTS).toHaveLength(4);
-      // Pro monthly: $39
-      expect(PRODUCTS[0].priceAmount).toBe(3900);
-      // Pro yearly: $374 (save 20%)
-      expect(PRODUCTS[1].priceAmount).toBe(37400);
-      // Team monthly: $99
-      expect(PRODUCTS[2].priceAmount).toBe(9900);
-      // Credits: $10
-      expect(PRODUCTS[3].priceAmount).toBe(1000);
+      const byTier = Object.fromEntries(PRODUCTS.map((p) => [p.tier, p.priceAmount]));
+      expect(byTier).toMatchObject({
+        individual: 1900,
+        professional: 9900,
+        manager: 19900,
+        organization: 49900,
+      });
     });
 
-    it("getProductById returns correct product", async () => {
+    it("tierAtLeast respects strict tier ranking", async () => {
+      const { tierAtLeast } = await import("./products");
+      expect(tierAtLeast("organization", "individual")).toBe(true);
+      expect(tierAtLeast("professional", "manager")).toBe(false);
+      expect(tierAtLeast(null, "individual")).toBe(false);
+    });
+
+    it("getProductById returns the correct tier product", async () => {
       const { getProductById } = await import("./products");
-      const pro = getProductById("pro_monthly");
+      const pro = getProductById("tier_professional_monthly");
       expect(pro).toBeDefined();
-      expect(pro!.name).toContain("Pro");
+      expect(pro!.tier).toBe("professional");
       expect(pro!.mode).toBe("subscription");
 
       const unknown = getProductById("nonexistent");
@@ -104,7 +105,7 @@ describe("Stripe Integration", () => {
 
       const { createCheckoutSession } = await import("./stripe");
       const result = await createCheckoutSession({
-        productId: "pro_monthly",
+        productId: "tier_professional_monthly",
         userId: 1,
         userEmail: "test@example.com",
         userName: "Test User",
@@ -122,7 +123,7 @@ describe("Stripe Integration", () => {
             user_id: "1",
             customer_email: "test@example.com",
             customer_name: "Test User",
-            product_id: "pro_monthly",
+            product_id: "tier_professional_monthly",
           }),
           success_url: expect.stringContaining("manusnext.example.com/billing"),
           cancel_url: expect.stringContaining("manusnext.example.com/billing"),
@@ -149,7 +150,7 @@ describe("Stripe Integration", () => {
       const { createCheckoutSession } = await import("./stripe");
       await expect(
         createCheckoutSession({
-          productId: "credits_100",
+          productId: "tier_individual_monthly",
           userId: 1,
           userEmail: "test@example.com",
           userName: "Test",

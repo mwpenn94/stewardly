@@ -4,17 +4,18 @@
  * Exposes circuit breaker states, provider health, and system metrics
  * for the Sovereign dashboard's infrastructure monitoring panel.
  */
-import { protectedProcedure, router } from "../_core/trpc";
+import { router } from "../_core/trpc";
+import { globalAdminProcedure } from "../_core/rbac";
 import { getAllCircuitStates } from "../services/failover";
 
 export const systemHealthRouter = router({
-  /** Get all circuit breaker states */
-  circuitBreakers: protectedProcedure.query(async () => {
+  /** L1: circuit breaker states (global_admin only) */
+  circuitBreakers: globalAdminProcedure.query(async () => {
     return getAllCircuitStates();
   }),
 
-  /** Get overall system health summary */
-  summary: protectedProcedure.query(async () => {
+  /** L1: overall system health summary (global_admin only) */
+  summary: globalAdminProcedure.query(async () => {
     const circuits = getAllCircuitStates();
     const openCircuits = Object.values(circuits).filter(c => c.isOpen);
     const totalFailures = Object.values(circuits).reduce((sum, c) => sum + c.failures, 0);

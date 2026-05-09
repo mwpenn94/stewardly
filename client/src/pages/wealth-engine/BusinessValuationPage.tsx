@@ -1,0 +1,267 @@
+/**
+ * BusinessValuationPage — SDE multiple + 5-year exit projection.
+ *
+ * Thin UI over `wealthEngine.valueBusiness` tRPC mutation. Lets the
+ * advisor (or owner) plug in revenue / EBITDA / owner add-back and
+ * see the current valuation and a projected exit value across a
+ * configurable horizon and growth assumption.
+ */
+
+import { useState } from "react";
+import AppShell from "@/components/AppShell";
+import { trpc } from "@/lib/trpc";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { toast } from "sonner";
+import {
+  Rocket, ArrowLeft, Loader2, TrendingUp, DollarSign, Sparkles, Calendar,
+} from "lucide-react";
+import { useLocation } from "wouter";
+import { SEOHead } from "@/components/SEOHead";
+
+import { useAuth } from "@/_core/hooks/useAuth";
+import { getLoginUrl } from "@/const";
+import { fmt, pct } from '@/lib/format';
+export default function BusinessValuationPage({ embedded = false }: { embedded?: boolean } = {}) {
+  const Shell = embedded ? ((({ children }: any) => <>{children}</>) as any) : AppShell;
+
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
+
+  const [, navigate] = useLocation();
+  const [revenue, setRevenue] = useState(2_000_000);
+  const [ebitda, setEbitda] = useState(400_000);
+  const [ownerAddBack, setOwnerAddBack] = useState(100_000);
+  const [growth, setGrowth] = useState(0.08);
+  const [years, setYears] = useState(5);
+  const [customMultiple, setCustomMultiple] = useState<number | null>(null);
+
+  const valueMut = trpc.wealthEngine.valueBusiness.useMutation({
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const run = () =>
+    valueMut.mutate({
+      annualRevenue: revenue,
+      annualEbitda: ebitda,
+      ownerAddBack,
+      growthRate: growth,
+      exitYears: years,
+      industryMultiple: customMultiple ?? undefined,
+    });
+
+  const result = valueMut.data?.data;
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <p className="text-muted-foreground">Please sign in to access this page.</p>
+        <a href={getLoginUrl()} className="text-amber-500 hover:text-amber-400 underline">Sign in</a>
+      </div>
+    );
+  }
+
+
+  return (
+    <Shell title="Business Valuation">
+      <SEOHead title="Business Valuation" description="Estimate and compare business valuations" />
+      <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon-sm" onClick={() => navigate("/wealth-engine")} aria-label="Back to wealth engine">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <div>
+            <div className="flex items-center gap-2">
+              <Rocket className="w-4 h-4 text-emerald-400" />
+              <h1 className="text-lg font-heading font-semibold">Business Valuation</h1>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              SDE multiple valuation + exit-horizon projection.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          {/* Input card */}
+          <Card className="lg:col-span-2 bg-card/60 border-border/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Financials</CardTitle>
+              <CardDescription className="text-[11px]">
+                SDE = EBITDA + owner add-back (salary, benefits, one-time costs).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <NumberField label="Annual Revenue" value={revenue} onChange={setRevenue} step={50_000} />
+              <NumberField label="EBITDA" value={ebitda} onChange={setEbitda} step={10_000} />
+              <NumberField label="Owner Add-Back" value={ownerAddBack} onChange={setOwnerAddBack} step={10_000} />
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">Growth rate</Label>
+                  <span className="text-xs font-mono">{pct(growth)}</span>
+                </div>
+                <Slider
+                  value={[growth * 100]}
+                  onValueChange={([v]) => setGrowth(v / 100)}
+                  min={-10}
+                  max={30}
+                  step={1}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">Exit horizon</Label>
+                  <span className="text-xs font-mono">{years} yrs</span>
+                </div>
+                <Slider
+                  value={[years]}
+                  onValueChange={([v]) => setYears(v)}
+                  min={1}
+                  max={20}
+                  step={1}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase text-muted-foreground">
+                  Override multiple (optional)
+                </Label>
+                <Input
+                  type="number"
+                  step={0.5}
+                  placeholder="Auto"
+                  value={customMultiple ?? ""}
+                  onChange={(e) =>
+                    setCustomMultiple(e.target.value === "" ? null : +e.target.value)
+                  }
+                  className="h-8 text-xs"
+                />
+              </div>
+
+              <Button
+                onClick={run}
+                disabled={valueMut.isPending}
+                className="w-full h-9 gap-1.5"
+              >
+                {valueMut.isPending ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3 h-3" />
+                )}
+                Value business
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Result card */}
+          <Card className="lg:col-span-3 bg-card/60 border-border/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Valuation</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!result && (
+                <div className="text-center py-10 text-muted-foreground">
+                  <Rocket className="w-8 h-8 mx-auto mb-2 text-muted-foreground/20" />
+                  <p className="text-sm">Enter your financials, then click Value business.</p>
+                </div>
+              )}
+              {result && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg p-4 bg-primary/5 border border-primary/20">
+                      <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Today</p>
+                      <p className="text-2xl font-heading font-semibold text-primary tabular-nums">
+                        {fmt(result.currentValue)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        SDE {fmt(result.sde)} × {result.multiple.toFixed(1)}x
+                      </p>
+                    </div>
+                    <div className="rounded-lg p-4 bg-emerald-500/5 border border-emerald-500/20">
+                      <p className="text-[10px] uppercase text-muted-foreground tracking-wider">
+                        In {years} years
+                      </p>
+                      <p className="text-2xl font-heading font-semibold text-emerald-400 tabular-nums">
+                        {fmt(result.exitValue)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        CAGR {pct(result.annualizedReturn)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-border/40 p-3 bg-secondary/20">
+                    <p className="text-[11px] text-muted-foreground">
+                      SDE-based valuation using a {result.multiple.toFixed(1)}x multiple.
+                      {result.totalGrowth > 0 ? ` Projected ${pct(result.totalGrowth)} total growth over ${years} years at ${pct(result.annualizedReturn)} CAGR.` : ""}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px] gap-1.5"
+                      onClick={() => navigate("/wealth-engine/owner-comp")}
+                    >
+                      <DollarSign className="w-3 h-3" /> Optimize owner comp
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px] gap-1.5"
+                      onClick={() => navigate("/wealth-engine/strategy-comparison")}
+                    >
+                      <TrendingUp className="w-3 h-3" /> Wealth strategy
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px] gap-1.5"
+                      onClick={() => navigate("/engine-dashboard")}
+                    >
+                      <Calendar className="w-3 h-3" /> Exit planning
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <p className="text-[10px] text-muted-foreground text-center pt-2">
+          Industry multiples derived from 2024 BizBuySell / IBBA medians. Illustrative only —
+          commission a formal valuation before any sale or succession event.
+        </p>
+      </div>
+    </Shell>
+  );
+}
+
+function NumberField({
+  label, value, onChange, step = 1,
+}: { label: string; value: number; onChange: (v: number) => void; step?: number }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-[10px] uppercase text-muted-foreground">{label}</Label>
+      <Input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(+e.target.value)}
+        step={step}
+        className="h-8 text-xs"
+      />
+    </div>
+  );
+}

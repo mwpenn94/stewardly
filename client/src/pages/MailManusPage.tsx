@@ -106,7 +106,7 @@ export default function MailManusPage() {
         <Card className="max-w-sm text-center">
           <CardContent className="py-12">
             <Lock className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground">Sign in to configure Mail Manus.</p>
+            <p className="text-muted-foreground">Sign in to configure Stewardly Mail.</p>
           </CardContent>
         </Card>
       </div>
@@ -118,7 +118,7 @@ export default function MailManusPage() {
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <Mail className="w-6 h-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">Mail Manus</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Stewardly Mail</h1>
           <Badge variant={settings.emailEnabled ? "default" : "secondary"} className="ml-auto">
             {settings.emailEnabled ? "Active" : "Inactive"}
           </Badge>
@@ -138,7 +138,7 @@ export default function MailManusPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-foreground">Enable Mail Manus</p>
+                <p className="text-sm font-medium text-foreground">Enable Stewardly Mail</p>
                 <p className="text-xs text-muted-foreground mt-0.5">Allow your agent to receive and process emails.</p>
               </div>
               <Switch

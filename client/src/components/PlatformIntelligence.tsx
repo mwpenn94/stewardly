@@ -1,0 +1,617 @@
+/**
+ * PlatformIntelligence.tsx — Core PIL React context + provider
+ *
+ * Pass 106. This is the nervous system. Mount once in App.tsx.
+ * Every component in the app can call usePlatformIntelligence() to:
+ * - Dispatch intents ("navigate to clients")
+ * - Execute actions
+ * - Trigger multimodal feedback
+ * - Check current modality preference
+ * - Enter/exit hands-free mode
+ */
+
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
+import { useLocation } from "wouter";
+import { useAudioCompanion } from "./AudioCompanion";
+import { dispatchFeedback } from "@/lib/FeedbackDispatcher";
+import { useCelebration } from "@/lib/CelebrationEngine";
+
+/* ── Types ──────────────────────────────────────────────────────── */
+
+type IntentSource = "chat" | "voice" | "click" | "keyboard" | "gesture" | "contextual";
+type ModalityPref = "visual_only" | "audio_only" | "both" | "minimal";
+
+interface PILState {
+  modalityPref: ModalityPref;
+  handsFreeActive: boolean;
+  voiceListening: boolean;
+  currentPage: string;
+  deviceType: "mobile" | "tablet" | "desktop";
+}
+
+interface PILActions {
+  processIntent: (source: IntentSource, input: string) => Promise<void>;
+  giveFeedback: (eventKey: string, data?: any) => void;
+  setModalityPref: (pref: ModalityPref) => void;
+  enterHandsFree: () => void;
+  exitHandsFree: () => void;
+  speak: (text: string) => void;
+  playSound: (soundId: string) => void;
+  listenOnce: () => void;
+}
+
+type PILContext = PILState & PILActions;
+
+/* ── Route map for intent → navigation ─────────────────────────── */
+
+const ROUTE_MAP: Record<string, string> = {
+  // Core
+  "chat": "/chat",
+  "home": "/chat",
+  // Clients & Relationships
+  "clients": "/relationships",
+  "my clients": "/relationships",
+  "relationships": "/relationships",
+  // Work & Cases
+  "cases": "/my-work",
+  "my work": "/my-work",
+  "work": "/my-work",
+  // Compliance
+  "compliance": "/compliance",
+  "compliance audit": "/compliance",
+  // Market Data
+  "market data": "/market-data",
+  "market": "/market-data",
+  "markets": "/market-data",
+  // Wealth Engine & Calculators
+  "calculators": "/wealth-engine",
+  "calculator": "/wealth-engine",
+  "wealth engine": "/wealth-engine",
+  "engine": "/wealth-engine",
+  "strategy comparison": "/wealth-engine/strategy-comparison",
+  "compare strategies": "/wealth-engine/strategy-comparison",
+  "retirement": "/wealth-engine/retirement",
+  "retirement calculator": "/wealth-engine/retirement",
+  "quick quote": "/wealth-engine/quick-quote",
+  "team builder": "/wealth-engine/team-builder",
+  "sensitivity": "/wealth-engine/sensitivity",
+  "what if": "/wealth-engine/what-if",
+  "business income": "/wealth-engine/business-income",
+  "business valuation": "/wealth-engine/business-valuation",
+  "owner comp": "/wealth-engine/owner-comp",
+  "configurator": "/wealth-engine/configurator",
+  "references": "/wealth-engine/references",
+  "practice to wealth": "/wealth-engine/practice-to-wealth",
+  // Learning
+  "learn": "/learning",
+  "learning": "/learning",
+  "study": "/learning",
+  "study buddy": "/learning/study-buddy",
+  "flashcard review": "/learning/review",
+  "due review": "/learning/review",
+  "learning search": "/learning/search",
+  "licenses": "/learning/licenses",
+  "license tracker": "/learning/licenses",
+  "content studio": "/learning/studio",
+  "achievements": "/learning/achievements",
+  "connection map": "/learning/connections",
+  // Settings & Admin
+  "settings": "/settings",
+  "help": "/help",
+  "admin": "/admin",
+  "platform admin": "/admin",
+  "knowledge": "/admin/knowledge",
+  "knowledge base": "/admin/knowledge",
+  // Documents & Data
+  "documents": "/documents",
+  "my documents": "/documents",
+  "progress": "/proficiency",
+  "my progress": "/proficiency",
+  "proficiency": "/proficiency",
+  // Team & Manager
+  "team": "/manager",
+  "team dashboard": "/manager",
+  "manager": "/manager",
+  // Financial Twin
+  "financial twin": "/financial-twin",
+  "my financial twin": "/financial-twin",
+  // Suitability & Recommendations
+  "suitability": "/settings/suitability",
+  "financial profile": "/settings/suitability",
+  "recommendations": "/insights",
+  // Financial tools
+  "tax planning": "/tax-planning",
+  "taxes": "/tax-planning",
+  "insurance analysis": "/insurance-analysis",
+  "insurance": "/insurance-analysis",
+  "estate planning": "/estate",
+  "estate": "/estate",
+  "social security": "/social-security",
+  "medicare": "/medicare",
+  "risk assessment": "/risk-assessment",
+  "risk": "/risk-assessment",
+  "income projection": "/income-projection",
+  "financial planning": "/financial-planning",
+  "protection score": "/protection-score",
+  // People & CRM
+  "people": "/people",
+  "people hub": "/people",
+  "contacts": "/people",
+  "crm sync": "/crm-sync",
+  "crm": "/crm-sync",
+  "client onboarding": "/client-onboarding",
+  "client dashboard": "/client-dashboard",
+  "community": "/community",
+  "import data": "/import",
+  "import": "/import",
+  // Audio & Voice
+  "audio": "/settings/audio",
+  "audio settings": "/settings/audio",
+  // Pipeline & Ops
+  "leads": "/leads",
+  "lead pipeline": "/leads",
+  "pipeline": "/leads",
+  "operations": "/operations",
+  "ops": "/operations",
+  "workflows": "/workflows",
+  // Analytics & Intelligence
+  "intelligence": "/intelligence-hub",
+  "intelligence hub": "/intelligence-hub",
+  "insights": "/insights",
+  // R14.18: "code chat" → "/code-chat" mapping removed.
+  // Admin sub-pages
+  "admin billing": "/admin/billing",
+  "billing": "/admin/billing",
+  "api keys": "/admin/api-keys",
+  "webhooks": "/admin/webhooks",
+  "team management": "/admin/team",
+  "system health": "/admin/system-health",
+};
+
+/* ── Sound effects (Web Audio API) ─────────────────────────────── */
+
+function playTone(freq: number, dur: number, type: OscillatorType, then?: () => void) {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.value = 0.08;
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + dur);
+    if (then) setTimeout(then, dur * 1000);
+  } catch { /* AudioContext not available */ }
+}
+
+const SOUNDS: Record<string, () => void> = {
+  send: () => playTone(880, 0.08, "sine"),
+  correct: () => playTone(660, 0.1, "sine", () => playTone(880, 0.15, "sine")),
+  error: () => playTone(330, 0.15, "sawtooth"),
+  navigate: () => playTone(440, 0.05, "sine"),
+  mic_on: () => playTone(660, 0.05, "sine"),
+  mic_off: () => playTone(440, 0.05, "sine"),
+  mode_activate: () => { playTone(440, 0.08, "sine"); setTimeout(() => playTone(660, 0.08, "sine"), 100); setTimeout(() => playTone(880, 0.12, "sine"), 200); },
+  mode_deactivate: () => { playTone(880, 0.08, "sine"); setTimeout(() => playTone(660, 0.08, "sine"), 100); setTimeout(() => playTone(440, 0.12, "sine"), 200); },
+  receive: () => { playTone(523, 0.06, "sine"); setTimeout(() => playTone(659, 0.08, "sine"), 80); },
+};
+
+/* ── Web Speech TTS ────────────────────────────────────────────── */
+
+function speakShort(text: string, rate = 1.1) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = rate;
+  u.volume = 0.7;
+  window.speechSynthesis.speak(u);
+}
+
+/* ── Context ───────────────────────────────────────────────────── */
+
+const PILCtx = createContext<PILContext | null>(null);
+
+export function usePlatformIntelligence() {
+  const ctx = useContext(PILCtx);
+  if (!ctx) throw new Error("usePlatformIntelligence must be within PILProvider");
+  return ctx;
+}
+
+/* ── Helpers ───────────────────────────────────────────────────── */
+
+function friendlyName(path: string): string {
+  const names: Record<string, string> = {
+    "/chat": "Chat",
+    "/relationships": "Clients",
+    "/my-work": "My Work",
+    "/compliance": "Compliance",
+    "/market-data": "Market Data",
+    "/wealth-engine": "Wealth Engine",
+    "/wealth-engine/strategy-comparison": "Strategy Comparison",
+    "/wealth-engine/retirement": "Retirement Calculator",
+    "/wealth-engine/quick-quote": "Quick Quote",
+    "/wealth-engine/team-builder": "Team Builder",
+    "/wealth-engine/sensitivity": "Sensitivity Analysis",
+    "/wealth-engine/what-if": "What-If Analysis",
+    "/wealth-engine/business-income": "Business Income",
+    "/wealth-engine/business-valuation": "Business Valuation",
+    "/wealth-engine/owner-comp": "Owner Compensation",
+    "/wealth-engine/configurator": "Wealth Configurator",
+    "/wealth-engine/references": "Reference Hub",
+    "/wealth-engine/practice-to-wealth": "Practice to Wealth",
+    "/learning": "Learning Center",
+    "/study": "Study",
+    "/education": "Education",
+    "/settings": "Settings",
+    "/settings/audio": "Audio Settings",
+    "/help": "Help",
+    "/documents": "Documents",
+    "/proficiency": "Proficiency Dashboard",
+    "/manager": "Team Dashboard",
+    "/admin": "Platform Admin",
+    "/admin/knowledge": "Knowledge Base",
+    "/financial-twin": "Financial Twin",
+    "/settings/suitability": "Suitability Profile",
+    "/tax-planning": "Tax Planning",
+    "/insurance-analysis": "Insurance Analysis",
+    "/estate": "Estate Planning",
+    "/social-security": "Social Security",
+    "/medicare": "Medicare Analysis",
+    "/risk-assessment": "Risk Assessment",
+    "/income-projection": "Income Projection",
+    "/financial-planning": "Financial Planning",
+    "/protection-score": "Protection Score",
+    "/people": "People Hub",
+    "/crm-sync": "CRM Sync",
+    "/client-onboarding": "Client Onboarding",
+    "/client-dashboard": "Client Dashboard",
+    "/community": "Community",
+    "/import": "Import Data",
+    "/leads": "Lead Pipeline",
+    "/operations": "Operations",
+    "/workflows": "Workflows",
+    "/intelligence-hub": "Intelligence Hub",
+    "/insights": "Insights",
+    // R14.18: "/code-chat" label mapping removed.
+    "/learning/study-buddy": "Study Buddy",
+    "/learning/review": "Flashcard Review",
+    "/learning/search": "Learning Search",
+    "/learning/licenses": "License Tracker",
+    "/learning/studio": "Content Studio",
+    "/learning/achievements": "Achievements",
+    "/learning/connections": "Connection Map",
+    "/admin/billing": "Billing",
+    "/admin/api-keys": "API Keys",
+    "/admin/webhooks": "Webhooks",
+    "/admin/team": "Team Management",
+    "/admin/system-health": "System Health",
+  };
+  return names[path] || path.split("/").pop()?.replace(/-/g, " ") || "page";
+}
+
+/* ── Provider ──────────────────────────────────────────────────── */
+
+export function PILProvider({ children }: { children: React.ReactNode }) {
+  const [location, navigate] = useLocation();
+  const audioCompanion = useAudioCompanion();
+  const celebrate = useCelebration();
+
+  const [state, setState] = useState<PILState>({
+    modalityPref: "both",
+    handsFreeActive: false,
+    voiceListening: false,
+    currentPage: location,
+    deviceType: typeof window !== "undefined" && window.innerWidth < 768
+      ? "mobile" : typeof window !== "undefined" && window.innerWidth < 1024 ? "tablet" : "desktop",
+  });
+
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    setState(prev => ({ ...prev, currentPage: location }));
+  }, [location]);
+
+  // Pass 6 (G15 / G25 / G26): keyboard shortcut event bus. Shift+V and
+  // Shift+R (from useKeyboardShortcuts) fire these window events; the
+  // PIL provider handles them centrally so the shortcut works on every
+  // page. The `actions` closure below holds the real implementations —
+  // we bind them through a ref to avoid stale-closure bugs when the
+  // shortcut fires during a state transition.
+  const actionsRef = useRef<PILActions | null>(null);
+
+  useEffect(() => {
+    const onResize = () => {
+      const w = window.innerWidth;
+      setState(prev => ({
+        ...prev,
+        deviceType: w < 768 ? "mobile" : w < 1024 ? "tablet" : "desktop",
+      }));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  /* ── Feedback rendering (wired to FeedbackDispatcher) ──── */
+
+  const giveFeedback = useCallback((eventKey: string, data?: any) => {
+    dispatchFeedback(eventKey, data, {
+      modalityPref: state.modalityPref,
+      deviceType: state.deviceType,
+      speak: speakShort,
+      playAudio: (item) => audioCompanion.play(item as any),
+      playSound: (id) => SOUNDS[id]?.(),
+      celebrate,
+      soundEffectsEnabled: true,
+    });
+  }, [state.modalityPref, state.deviceType, audioCompanion, celebrate]);
+
+  /* ── Intent processing ───────────────────────────────────── */
+
+  const processIntent = useCallback(async (source: IntentSource, input: string) => {
+    const normalized = input.toLowerCase().trim();
+
+    // Level 1: Navigation intent (bare words only match in voice/hands-free mode)
+    const navPatterns: RegExp[] = [
+      /^(?:go to|open|show me|navigate to|show)\s+(.+)$/i,
+    ];
+    if (source === "voice" || state.handsFreeActive) {
+      navPatterns.push(/^(.+)$/i);
+    }
+
+    for (const pattern of navPatterns) {
+      const match = normalized.match(pattern);
+      if (match) {
+        const target = match[1].trim();
+        const route = ROUTE_MAP[target];
+        if (route) {
+          navigate(route);
+          if (state.modalityPref !== "visual_only") {
+            speakShort(friendlyName(route));
+          }
+          giveFeedback("navigate.success", { destination: friendlyName(route) });
+          return;
+        }
+      }
+    }
+
+    // Pass 5 (G5): voice command vocabulary beyond navigation.
+    // Dispatch global events that the active page can listen for.
+    // Chat.tsx wires send / new_chat / palette / undo into its own
+    // handlers; any other page can subscribe similarly without
+    // changing PIL.
+
+    // "send" / "send it" / "submit" — fire the send event.
+    if (/^(send|send it|submit|go)$/i.test(normalized)) {
+      window.dispatchEvent(new CustomEvent("pil:send"));
+      return;
+    }
+    // "new chat" / "new conversation" / "start over"
+    if (/^(new chat|new conversation|start over|blank slate)$/i.test(normalized)) {
+      window.dispatchEvent(new CustomEvent("pil:new-chat"));
+      return;
+    }
+    // "open palette" / "search" / "command palette"
+    if (/^(open palette|command palette|open command|search|find)$/i.test(normalized)) {
+      window.dispatchEvent(new CustomEvent("toggle-command-palette"));
+      return;
+    }
+    // Pass 5 (G5): "bookmark" / "pin this" — pin the current conversation
+    if (/^(bookmark|pin this|pin it|save this|pin conversation)$/i.test(normalized)) {
+      window.dispatchEvent(new CustomEvent("pil:bookmark"));
+      return;
+    }
+    // "undo" — maps to the edit history ring buffer on pages that have one
+    if (/^(undo|take it back|revert)$/i.test(normalized)) {
+      window.dispatchEvent(new CustomEvent("pil:undo"));
+      return;
+    }
+    // "cancel" — abort whatever is in flight (same as stop-stream)
+    if (/^(cancel|abort|never mind|forget it)$/i.test(normalized)) {
+      window.dispatchEvent(new CustomEvent("pil:stop-stream"));
+      audioCompanion.pause();
+      return;
+    }
+
+    // Level 2: Audio commands
+    if (/^(pause|stop|hold on)$/i.test(normalized)) {
+      audioCompanion.pause();
+      // Pass 5 (G61 — voice "stop" must actually stop everything):
+      // prior to this the command only paused TTS; SSE streaming kept
+      // running in the background and interleaved the user's next
+      // answer with the abandoned response. Emit a global event any
+      // streaming consumer can listen for — Chat.tsx handles it by
+      // calling streamAbortRef.current?.abort() in its `stop`
+      // listener.
+      window.dispatchEvent(new CustomEvent("pil:stop-stream"));
+      return;
+    }
+    if (/^(resume|continue|play|keep going)$/i.test(normalized)) {
+      audioCompanion.resume();
+      return;
+    }
+    if (/^(speed up|faster)$/i.test(normalized)) {
+      audioCompanion.adjustSpeed(0.25);
+      speakShort(`${(audioCompanion.speed + 0.25).toFixed(1)}x`);
+      return;
+    }
+    if (/^(slow down|slower)$/i.test(normalized)) {
+      audioCompanion.adjustSpeed(-0.25);
+      speakShort(`${Math.max(0.5, audioCompanion.speed - 0.25).toFixed(1)}x`);
+      return;
+    }
+    if (/^read this|read (?:this )?(?:page|aloud)/i.test(normalized)) {
+      audioCompanion.readCurrentPage();
+      return;
+    }
+
+    // Level 3: Hands-free mode
+    if (/^(?:enter|start|activate) hands[- ]?free/i.test(normalized)) {
+      actions.enterHandsFree();
+      return;
+    }
+    if (/^(?:exit|stop|deactivate|leave) hands[- ]?free/i.test(normalized)) {
+      actions.exitHandsFree();
+      return;
+    }
+
+    // Level 4: Learning commands
+    if (/^next|next (?:card|flashcard|question)/i.test(normalized)) {
+      document.dispatchEvent(new CustomEvent("pil:learning", { detail: { action: "next" } }));
+      return;
+    }
+    if (/^(?:show|flip|reveal)(?: (?:the )?answer)?/i.test(normalized)) {
+      document.dispatchEvent(new CustomEvent("pil:learning", { detail: { action: "reveal" } }));
+      return;
+    }
+    if (/^(?:rate |mark )?(?:as )?(easy|good|hard|again)$/i.test(normalized)) {
+      const rating = normalized.match(/(easy|good|hard|again)/i)?.[1];
+      document.dispatchEvent(new CustomEvent("pil:learning", { detail: { action: "rate", rating } }));
+      return;
+    }
+
+    // Level 5: If nothing matched and source is voice — dispatch the
+    // designed "voice.not_understood" spec (toast + gentle spoken retry).
+    if (source === "voice") {
+      giveFeedback("voice.not_understood");
+    }
+  }, [navigate, state.modalityPref, audioCompanion, giveFeedback]);
+
+  /* ── Voice listening ─────────────────────────────────────── */
+
+  const startListening = useCallback(() => {
+    if (recognitionRef.current) return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.info("[PIL] SpeechRecognition not available in this browser — voice commands disabled");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event: any) => {
+      const last = event.results[event.results.length - 1];
+      if (last.isFinal) {
+        processIntent("voice", last[0].transcript.trim());
+      }
+    };
+
+    recognition.onend = () => {
+      if (state.handsFreeActive) {
+        setTimeout(() => recognitionRef.current?.start(), 100);
+      } else {
+        setState(prev => ({ ...prev, voiceListening: false }));
+        recognitionRef.current = null;
+      }
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+      setState(prev => ({ ...prev, voiceListening: true }));
+      // Pass 1: dispatch designed "voice.listening_started" spec so the
+      // mic-pulse animation + earcon actually fire for PIL hands-free path.
+      giveFeedback("voice.listening_started");
+    } catch (startErr) {
+      // start() can throw in some Safari versions or when a prior instance
+      // hasn't fully released the mic — fail safe instead of crashing.
+      console.warn("[PIL] voice start failed:", startErr);
+      recognitionRef.current = null;
+    }
+  }, [processIntent, state.handsFreeActive, giveFeedback]);
+
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+    setState(prev => ({ ...prev, voiceListening: false }));
+    // Pass 1: dispatch designed "voice.listening_stopped" spec.
+    giveFeedback("voice.listening_stopped");
+  }, [giveFeedback]);
+
+  /* ── Actions ─────────────────────────────────────────────── */
+
+  const actions: PILActions = {
+    processIntent,
+    giveFeedback,
+
+    setModalityPref: (pref) => setState(prev => ({ ...prev, modalityPref: pref })),
+
+    enterHandsFree: () => {
+      // Pass 1 (multisensory build loop — G54): route through the dispatcher
+      // instead of calling SOUNDS/speakShort directly so the designed
+      // multimodal feedback spec ("handsfree.activated") is consistent with
+      // every other feedback path in the app. Keep the "onboarding" prompt
+      // line as a dedicated speak call because the spec is a short earcon
+      // only; users need the verbal affordance the first time they activate.
+      giveFeedback("handsfree.activated");
+      setState(prev => ({ ...prev, handsFreeActive: true, modalityPref: "both" }));
+      startListening();
+      setTimeout(() => {
+        speakShort("Hands-free mode active. What would you like to do?");
+      }, 500);
+    },
+
+    exitHandsFree: () => {
+      giveFeedback("handsfree.deactivated");
+      stopListening();
+      audioCompanion.pause();
+      setState(prev => ({ ...prev, handsFreeActive: false, modalityPref: "both" }));
+      speakShort("Hands-free mode off.");
+    },
+
+    speak: speakShort,
+    playSound: (soundId) => SOUNDS[soundId]?.(),
+    listenOnce: () => {
+      SOUNDS.mic_on?.();
+      startListening();
+    },
+  };
+
+  // Pass 6: keep the ref in sync so window-event handlers always hit
+  // the latest actions, and wire the listeners once on mount.
+  actionsRef.current = actions;
+  useEffect(() => {
+    const onToggle = () => {
+      const current = actionsRef.current;
+      if (!current) return;
+      if (state.handsFreeActive) current.exitHandsFree();
+      else current.enterHandsFree();
+    };
+    const onReadPage = () => {
+      const current = actionsRef.current;
+      if (!current) return;
+      // `readCurrentPage` is on AudioCompanion, not PIL. The existing
+      // processIntent voice path uses the same call — here we hit it
+      // via the same module.
+      audioCompanion.readCurrentPage?.();
+    };
+    // Build Loop Pass 10 (G7): PushToTalkButton dispatches pil:send-
+    // feedback so it can trigger designed feedback specs without
+    // importing the PIL context (and dragging the whole provider into
+    // a static button).
+    const onSendFeedback = (e: Event) => {
+      const current = actionsRef.current;
+      if (!current) return;
+      const detail = (e as CustomEvent).detail;
+      if (detail?.key) current.giveFeedback(detail.key, detail?.data);
+    };
+    window.addEventListener("pil:toggle-handsfree", onToggle);
+    window.addEventListener("pil:read-page", onReadPage);
+    window.addEventListener("pil:send-feedback", onSendFeedback);
+    return () => {
+      window.removeEventListener("pil:toggle-handsfree", onToggle);
+      window.removeEventListener("pil:read-page", onReadPage);
+      window.removeEventListener("pil:send-feedback", onSendFeedback);
+    };
+  }, [state.handsFreeActive, audioCompanion]);
+
+  return (
+    <PILCtx.Provider value={{ ...state, ...actions }}>
+      {children}
+    </PILCtx.Provider>
+  );
+}

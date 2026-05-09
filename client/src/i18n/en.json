@@ -1,5 +1,5 @@
 {
-  "app.title": "Manus Next",
+  "app.title": "Stewardly",
   "app.tagline": "What can I do for you?",
   "nav.home": "Home",
   "nav.projects": "Projects",
@@ -9,7 +9,7 @@
   "nav.newTask": "New Task",
   "nav.keyboardShortcuts": "Keyboard Shortcuts",
   "home.greeting": "Hello.",
-  "home.placeholder": "Give Manus Next a task to work on...",
+  "home.placeholder": "Give Stewardly a task to work on...",
   "home.submit": "Submit",
   "home.attachFile": "Attach file",
   "home.voiceInput": "Voice input",

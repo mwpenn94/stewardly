@@ -74,8 +74,13 @@ describe("Phase 4: Stripe subscription flow", () => {
   it("should have products.ts with plan definitions", () => {
     expect(existsSync(resolve(ROOT, "server/products.ts"))).toBe(true);
     const products = readFile("server/products.ts");
-    expect(products).toContain("pro_monthly");
-    expect(products).toContain("pro_yearly");
+    // Stewardly tier catalog (was: generic pro_monthly/pro_yearly).
+    // Source of truth: server/products.ts; subsumption ranking validated
+    // in server/stripe.test.ts.
+    expect(products).toContain("tier_individual_monthly");
+    expect(products).toContain("tier_professional_monthly");
+    expect(products).toContain("tier_manager_monthly");
+    expect(products).toContain("tier_organization_monthly");
   });
 
   it("should have stripe.ts with checkout and webhook handlers", () => {

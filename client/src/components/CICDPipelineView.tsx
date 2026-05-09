@@ -93,7 +93,8 @@ const PipelineHeader: React.FC<{ pipeline: Pipeline }> = ({ pipeline }) => (
         <div className="flex items-center space-x-2 truncate"><GitCommit className="h-4 w-4 flex-shrink-0" /> <span className="truncate font-mono text-xs" title={pipeline.trigger.commit}>commit {pipeline.trigger.commit}</span></div>
         <div className="flex items-center space-x-2 truncate"><GitBranch className="h-4 w-4 flex-shrink-0" /> <span className="truncate font-mono text-xs" title={pipeline.trigger.branch}>{pipeline.trigger.branch}</span></div>
         <div className="flex items-center space-x-2 truncate"><User className="h-4 w-4 flex-shrink-0" /> <span className="truncate" title={pipeline.trigger.author}>{pipeline.trigger.author}</span></div>
-        <div className="flex items-center space-x-2 truncate"><Package className="h-4 w-4 flex-shrink-0" /> <a href="#" className="hover:underline">{pipeline.artifacts.length} Artifacts</a></div>
+        {/* R14.20 (UI polish recursion Pass C5): replace broken href="#" anchor with a non-interactive count + tooltip; the underlying artifacts list is shown elsewhere on the pipeline detail page. */}
+        <div className="flex items-center space-x-2 truncate" title={`${pipeline.artifacts.length} artifact${pipeline.artifacts.length === 1 ? "" : "s"} for this pipeline run`}><Package className="h-4 w-4 flex-shrink-0" /> <span>{pipeline.artifacts.length} Artifacts</span></div>
     </CardContent>
   </Card>
 );

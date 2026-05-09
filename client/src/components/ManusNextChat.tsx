@@ -32,6 +32,20 @@ import type {
 } from "@shared/ManusNextChat.types";
 import { THEME_PRESETS } from "@shared/ManusNextChat.themes";
 import { cn } from "@/lib/utils";
+// ChatGreeting is exported as default (alias of ChatGreetingV2 inside the
+// glass export); import the default and rename for in-scope clarity.
+import ChatGreeting from "@/components/glass/ChatGreeting";
+import { VoiceOrb } from "@/components/glass/VoiceOrb";
+import { ConnectionQualityIndicator } from "@/components/glass/substrate/ConnectionQualityIndicator";
+import { SovereignModeIndicator } from "@/components/glass/substrate/SovereignModeIndicator";
+import { TierBadge } from "@/components/glass/substrate/TierBadge";
+import { ActionIndicator } from "@/components/glass/substrate/ActionIndicator";
+import { MemoryInsightPanel } from "@/components/glass/substrate/MemoryInsightPanel";
+import { ATLASGoalPanel } from "@/components/glass/substrate/ATLASGoalPanel";
+import { WorkspaceArtifactsPanel } from "@/components/glass/substrate/WorkspaceArtifactsPanel";
+import { SearchCascadePanel } from "@/components/glass/substrate/SearchCascadePanel";
+import { QualityScoreDisplay } from "@/components/glass/substrate/QualityScoreDisplay";
+import { useChatSubstrate } from "@/contexts/ChatSubstrateContext";
 import { ArrowUp, Paperclip, Mic, Square, Volume2, Zap, Sparkles, Crown, Infinity } from "lucide-react";
 
 /**
@@ -60,7 +74,7 @@ const ManusNextChat = forwardRef<ManusNextChatHandle, ManusNextChatProps>(
       style,
       showHeader = true,
       headerContent,
-      placeholder = "Give Manus Next a task to work on...",
+      placeholder = "Give Stewardly a task to work on...",
       loading = false,
       disabled = false,
     },
@@ -70,6 +84,14 @@ const ManusNextChat = forwardRef<ManusNextChatHandle, ManusNextChatProps>(
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
     const [input, setInput] = useState("");
     const [isStreaming, setIsStreaming] = useState(false);
+    // Voice state drives the orb visualization. The recorder hooks below
+    // toggle these states so the orb reflects the real mic lifecycle
+    // (idle → listening → processing → idle) rather than a static icon.
+    const [voiceState, setVoiceState] = useState<
+      "idle" | "listening" | "processing" | "speaking"
+    >("idle");
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
     const [mode, setMode] = useState<AgentMode>(config.defaultMode ?? "quality");
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -264,11 +286,21 @@ const ManusNextChat = forwardRef<ManusNextChatHandle, ManusNextChatProps>(
     const modeIcon = mode === "speed" ? Zap : mode === "max" ? Crown : mode === "limitless" ? Infinity : Sparkles;
     const ModeIcon = modeIcon;
 
+    // Substrate panels render only when their slice has data — no fake/placeholder UI.
+    const substrate = useChatSubstrate();
+    const [workspaceOpen, setWorkspaceOpen] = useState(true);
+    const hasRightRailContent =
+      substrate.qualityScore !== null ||
+      substrate.memory !== null ||
+      substrate.atlas !== null ||
+      substrate.searchCascade !== null;
+    void ModeIcon; // ModeIcon retained for future header iconography
+
     return (
+      <div className={cn("flex h-full", className)} style={style as React.CSSProperties}>
       <div
-        className={cn("flex flex-col h-full", className)}
+        className={cn("flex flex-col h-full flex-1")}
         style={{
-          ...style,
           "--mnc-primary": theme.colors.primary,
           "--mnc-bg": theme.colors.background,
           "--mnc-fg": theme.colors.foreground,
@@ -296,10 +328,17 @@ const ManusNextChat = forwardRef<ManusNextChatHandle, ManusNextChatProps>(
                 >
                   <Sparkles className="w-3.5 h-3.5" style={{ color: theme.colors.primaryForeground }} />
                 </div>
-                <span className="text-sm font-medium">Manus</span>
+                <span className="text-sm font-medium">Stewardly</span>
               </div>
             )}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
+              {/* Substrate badges — progressive UI signal channel; hidden when isStreaming irrelevant */}
+              <ConnectionQualityIndicator isStreaming={isStreaming} />
+              <SovereignModeIndicator tier="S2" providerName="Stewardly" />
+              <TierBadge
+                costTier={mode === "speed" ? "economy" : mode === "max" ? "reasoning" : "standard"}
+                routingTier="AUTO"
+              />
               {(["speed", "quality", "max", "limitless"] as AgentMode[]).map((m) => (
                 <button
                   key={m}
@@ -329,11 +368,16 @@ const ManusNextChat = forwardRef<ManusNextChatHandle, ManusNextChatProps>(
           style={{ backgroundColor: theme.colors.background }}
         >
           {messages.length === 0 && !loading && (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-sm" style={{ color: theme.colors.mutedForeground }}>
-                Start a conversation...
-              </p>
-            </div>
+            // Suggestion + engine clicks dispatch via handleSend (the
+            // in-scope sender). The exported imperative sendMessage on the
+            // ref is only callable from outside; inside render we go
+            // straight through the local handler so the empty-state hero
+            // hits the same SSE pipeline as the input form.
+            <ChatGreeting
+              isAuthenticated
+              onSuggestionClick={(prompt: string) => handleSend(prompt)}
+              onEngineSelect={(_id: string, prompt: string) => handleSend(prompt)}
+            />
           )}
           {messages.map((msg) => (
             <div
@@ -360,21 +404,7 @@ const ManusNextChat = forwardRef<ManusNextChatHandle, ManusNextChatProps>(
           ))}
           {isStreaming && (
             <div className="flex justify-start">
-              <div
-                className="rounded-xl px-4 py-2.5 text-sm rounded-bl-sm"
-                style={{
-                  backgroundColor: theme.colors.card,
-                  border: `1px solid ${theme.colors.border}`,
-                  color: theme.colors.mutedForeground,
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <ModeIcon className="w-3.5 h-3.5 animate-pulse" />
-                  <span>
-                    {mode === "speed" ? "Processing..." : mode === "limitless" ? "Optimizing recursively..." : mode === "max" ? "Deep researching..." : "Thinking..."}
-                  </span>
-                </div>
-              </div>
+              <ActionIndicator state={"thinking"} />
             </div>
           )}
           <div ref={messagesEndRef} />
@@ -431,13 +461,131 @@ const ManusNextChat = forwardRef<ManusNextChatHandle, ManusNextChatProps>(
                       <Paperclip className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => events?.onError?.(new Error("Voice input requires microphone permission. Use the main TaskView for full voice support."))}
-                      className="p-1.5 rounded-md transition-colors opacity-60 hover:opacity-100"
+                      onClick={async () => {
+                        // Toggle recording. On start, request mic via
+                        // getUserMedia and pipe MediaRecorder chunks. On
+                        // stop, POST the blob to /api/voice/transcribe
+                        // (server-side Whisper helper) and stuff the
+                        // transcript into the input field. The VoiceOrb
+                        // visualizes idle / listening / processing.
+                        if (voiceState === "listening") {
+                          mediaRecorderRef.current?.stop();
+                          return;
+                        }
+                        if (!navigator.mediaDevices?.getUserMedia) {
+                          events?.onError?.(
+                            new Error("Microphone not available in this browser"),
+                          );
+                          return;
+                        }
+                        try {
+                          const stream =
+                            await navigator.mediaDevices.getUserMedia({
+                              audio: true,
+                            });
+                          // Pick a MIME the local MediaRecorder supports AND
+                          // that Whisper accepts. iOS Safari does not support
+                          // audio/webm at all, so we fall back to audio/mp4
+                          // (recorded as an .m4a container). Whisper supports
+                          // both `webm` and `m4a` extensions.
+                          const candidates: Array<{ mime: string; ext: string }> = [
+                            { mime: "audio/webm;codecs=opus", ext: "webm" },
+                            { mime: "audio/webm",             ext: "webm" },
+                            { mime: "audio/mp4;codecs=mp4a.40.2", ext: "m4a" },
+                            { mime: "audio/mp4",              ext: "m4a" },
+                            { mime: "audio/aac",              ext: "m4a" },
+                            { mime: "audio/wav",              ext: "wav" },
+                          ];
+                          const supported =
+                            candidates.find((c) =>
+                              typeof MediaRecorder !== "undefined" &&
+                              typeof MediaRecorder.isTypeSupported === "function" &&
+                              MediaRecorder.isTypeSupported(c.mime),
+                            ) ?? candidates[3]; // safe iOS default: audio/mp4 .m4a
+                          const recorder = supported.mime
+                            ? new MediaRecorder(stream, { mimeType: supported.mime })
+                            : new MediaRecorder(stream);
+                          // Persist the chosen container so onstop builds the
+                          // Blob and FormData filename consistently.
+                          const chosenMime = recorder.mimeType || supported.mime;
+                          const chosenExt =
+                            chosenMime.includes("mp4") || chosenMime.includes("aac")
+                              ? "m4a"
+                              : chosenMime.includes("wav")
+                              ? "wav"
+                              : "webm";
+                          mediaRecorderRef.current = recorder;
+                          audioChunksRef.current = [];
+                          recorder.ondataavailable = (e) => {
+                            if (e.data.size > 0)
+                              audioChunksRef.current.push(e.data);
+                          };
+                          recorder.onstop = async () => {
+                            stream.getTracks().forEach((t) => t.stop());
+                            setVoiceState("processing");
+                            const blob = new Blob(audioChunksRef.current, {
+                              // Important: use the actual recorded container,
+                              // not a hardcoded audio/webm. Whisper rejects
+                              // mismatched containers as "Invalid file format".
+                              type: chosenMime,
+                            });
+                            try {
+                              // Send the raw audio blob (NOT FormData). The
+                              // server route persists the request body verbatim
+                              // and feeds the storage URL to Whisper. If we
+                              // post multipart, Whisper sees boundary noise and
+                              // returns 400 "Invalid file format".
+                              const res = await fetch(
+                                `/api/voice/transcribe?ext=${chosenExt}`,
+                                {
+                                  method: "POST",
+                                  body: blob,
+                                  credentials: "include",
+                                  headers: { "Content-Type": chosenMime },
+                                },
+                              );
+                              if (res.ok) {
+                                const { text } = await res.json();
+                                if (text) setInput(text);
+                              } else {
+                                const detail = await res.text().catch(() => "");
+                                events?.onError?.(
+                                  new Error(
+                                    `Transcription failed (${res.status}): ${detail.slice(0, 200)}`,
+                                  ),
+                                );
+                              }
+                            } catch (err) {
+                              events?.onError?.(err as Error);
+                            } finally {
+                              setVoiceState("idle");
+                            }
+                          };
+                          recorder.start();
+                          setVoiceState("listening");
+                        } catch (err) {
+                          events?.onError?.(err as Error);
+                          setVoiceState("idle");
+                        }
+                      }}
+                      className="p-1.5 rounded-md transition-colors opacity-80 hover:opacity-100"
                       style={{ color: theme.colors.foreground }}
-                      aria-label="Voice input"
-                      title="Voice input (available in TaskView)"
+                      aria-label={
+                        voiceState === "listening"
+                          ? "Stop voice input"
+                          : "Start voice input"
+                      }
+                      title={
+                        voiceState === "listening"
+                          ? "Stop recording"
+                          : "Voice input"
+                      }
                     >
-                      <Mic className="w-4 h-4" />
+                      {voiceState === "idle" ? (
+                        <Mic className="w-4 h-4" />
+                      ) : (
+                        <VoiceOrb state={voiceState} size={20} />
+                      )}
                     </button>
                   </>
                 )}
@@ -491,6 +639,47 @@ const ManusNextChat = forwardRef<ManusNextChatHandle, ManusNextChatProps>(
             </div>
           </div>
         </div>
+      </div>
+      {/* Right rail — substrate panels render conditionally on context data */}
+      {hasRightRailContent && (
+        <aside
+          className="w-80 border-l p-4 space-y-4 overflow-y-auto scroll-mask hidden lg:block glass-card"
+          style={{ borderColor: theme.colors.border }}
+          aria-label="Substrate context panel"
+        >
+          {substrate.qualityScore && (
+            <QualityScoreDisplay score={substrate.qualityScore} compact />
+          )}
+          {substrate.memory && (
+            <MemoryInsightPanel
+              memories={substrate.memory.memories}
+              totalMemories={substrate.memory.totalMemories}
+              consolidationScore={substrate.memory.consolidationScore}
+            />
+          )}
+          {substrate.atlas && (
+            <ATLASGoalPanel
+              goal={substrate.atlas.goal}
+              subGoals={substrate.atlas.subGoals}
+              progress={substrate.atlas.progress}
+            />
+          )}
+          {substrate.searchCascade && (
+            <SearchCascadePanel
+              query={substrate.searchCascade.query}
+              tiers={substrate.searchCascade.tiers}
+              totalResults={substrate.searchCascade.totalResults}
+            />
+          )}
+        </aside>
+      )}
+      {/* Workspace artifacts panel — self-managed visibility (returns null when empty) */}
+      <WorkspaceArtifactsPanel
+        artifacts={substrate.workspaceArtifacts}
+        isOpen={workspaceOpen}
+        onToggle={() => setWorkspaceOpen((v) => !v)}
+        onClose={() => setWorkspaceOpen(false)}
+      />
       </div>
     );
   }

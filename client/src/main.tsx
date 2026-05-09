@@ -66,7 +66,11 @@ const queryClient = new QueryClient({
  *   2. Stale localStorage data triggers redirect even for legitimately unauthenticated pages
  *   3. The redirect cycle repeats when the session cookie is missing/expired
  */
-// Zod validation messages that are internal/technical and should not be shown to users
+// Zod validation messages that are internal/technical and should not be shown to users.
+// R14.32: Also suppress transient network errors that React Query auto-retries —
+// otherwise Safari iOS surfaces "Load failed" as a user-facing toast on every retry,
+// producing a confusing loop. The retry layer recovers silently; users only need to
+// see persistent failures.
 const SUPPRESSED_ERROR_PATTERNS = [
   'did not match',
   'expected pattern',
@@ -82,6 +86,17 @@ const SUPPRESSED_ERROR_PATTERNS = [
   'ECONNREFUSED',
   'ETIMEDOUT',
   'values (default',
+  // R14.32: transient network/fetch failures (Safari + Chromium) — auto-retried
+  'Load failed',
+  'Failed to fetch',
+  'NetworkError when attempting to fetch',
+  'network error',
+  'fetch failed',
+  'ERR_NETWORK',
+  'ERR_CONNECTION',
+  'ECONNRESET',
+  'The network connection was lost',
+  'cancelled',
 ];
 
 function isInternalValidationError(message: string): boolean {
@@ -98,10 +113,12 @@ queryClient.getQueryCache().subscribe(event => {
       return;
     }
     if (error instanceof TRPCClientError && error.message !== UNAUTHED_ERR_MSG) {
-      console.error("[API Query Error]", error);
-      // Suppress internal validation errors from showing as toast
+      // Suppress noisy logs for transient network errors that will be retried
       if (!isInternalValidationError(error.message)) {
+        console.error("[API Query Error]", error);
         toast.error(error.message || "Something went wrong", { id: 'query-error', duration: 4000 });
+      } else {
+        console.warn("[API Query] Suppressed (transient/internal):", error.message);
       }
     }
   }
@@ -110,10 +127,12 @@ queryClient.getMutationCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.mutation.state.error;
     if (error instanceof TRPCClientError && error.message !== UNAUTHED_ERR_MSG) {
-      console.error("[API Mutation Error]", error);
-      // Suppress internal validation errors from showing as toast
+      // Suppress internal validation + transient network errors from showing as toast
       if (!isInternalValidationError(error.message)) {
+        console.error("[API Mutation Error]", error);
         toast.error(error.message || "Action failed", { id: 'mutation-error', duration: 4000 });
+      } else {
+        console.warn("[API Mutation] Suppressed (transient/internal):", error.message);
       }
     }
   }

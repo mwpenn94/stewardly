@@ -262,9 +262,24 @@ export default function TaskTemplates({
   }
 
   // ── Compact mode: horizontal scroll row for Home page ──
+  // R14.34b: Manage button is PINNED to the left (sticky) so it never gets
+  // buried by an overflowing template list. The templates scroll horizontally
+  // to the right of it.
   if (compact) {
     return (
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex items-stretch gap-2 min-w-0">
+        {/* Pinned Manage button — always visible, never scrolls away */}
+        <button
+          onClick={() => setManageOpen(true)}
+          className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full border border-border text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all whitespace-nowrap"
+          title="Manage templates"
+          aria-label="Manage templates"
+        >
+          <Settings2 className="w-3.5 h-3.5" />
+          Manage
+        </button>
+        {/* Scrollable templates row */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none min-w-0 flex-1">
         {templates.map((template) => {
           const IconComp = ICON_MAP[template.icon || "Sparkles"] || Sparkles;
           return (
@@ -310,17 +325,7 @@ export default function TaskTemplates({
             Save
           </button>
         )}
-        {/* Manage button */}
-        {templates.length > 0 && (
-          <button
-            onClick={() => setManageOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-border text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all whitespace-nowrap shrink-0"
-            title="Manage templates"
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-            Manage
-          </button>
-        )}
+        </div>
 
         {/* Create/Edit Dialog */}
         <TemplateDialog

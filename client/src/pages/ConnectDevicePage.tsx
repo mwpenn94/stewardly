@@ -54,7 +54,7 @@ const CONNECTION_METHODS: Record<ConnectionMethod, { label: string; cost: string
     description: "Uses your OS built-in VNC/Remote Desktop server tunneled through Cloudflare's free tier.",
   },
   electron_app: {
-    label: "Manus Companion App",
+    label: "Stewardly Companion App",
     cost: "Free",
     platforms: ["desktop"],
     description: "Full desktop control via a lightweight companion app (~50 MB). Connects via outbound WebSocket.",
@@ -173,9 +173,9 @@ export default function ConnectDevicePage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+            <h2 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
               Connected Devices
-            </h1>
+            </h2>
             <p className="text-sm text-muted-foreground mt-1">
               Connect your own computer, phone, or tablet for the agent to control
             </p>

@@ -33,7 +33,9 @@ describe("E2E Smoke Tests — Critical Path", () => {
       expect(res.status).toBe(200);
       const html = await res.text();
       expect(html.toLowerCase()).toContain("<!doctype html>");
-      expect(html).toContain("Manus");
+      // Brand was reskinned from Manus Next to Stewardly. Served HTML
+      // (title, og:title, apple-mobile-web-app-title) all say Stewardly.
+      expect(html).toContain("Stewardly");
     });
 
     it("serves static assets (vite manifest)", async () => {

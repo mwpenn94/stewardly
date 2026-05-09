@@ -274,7 +274,7 @@ export default function KnowledgeBaseExplorer({ projectExternalId }: KnowledgeBa
                     <p className="text-[10px] text-muted-foreground mb-1">Attached File</p>
                     <a
                       href={selectedItem.fileUrl}
-                      target="_blank"
+                      target="_blank" rel="noopener noreferrer"
                       rel="noopener noreferrer"
                       className="text-xs text-primary hover:underline"
                     >

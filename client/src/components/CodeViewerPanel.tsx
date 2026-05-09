@@ -57,7 +57,7 @@ const mockFileSystem: FileNode[] = [
                 size: 2048,
                 lastModified: '2023-10-27T10:00:00Z',
                 content: `// Welcome to the code viewer!\nimport React from 'react';\nimport './styles.css';\n\nconst GREETING = "Hello, World!";\n\nfunction App() {\n  // This is a simple component\n  return (\n    <div className="App">\n      <h1>{GREETING}</h1>\n      <p>Edit <code>src/app.js</code> and save to reload.</p>\n      <button onClick={() => alert('Clicked!')}>Click me</button>\n    </div>\n  );\n}\n\nexport default App;`,
-                diffContent: `// Welcome to the code viewer!\nimport React, { useState } from 'react';\nimport './styles.css';\n\nconst GREETING = "Hello, Manus!"; // Changed greeting\n\nfunction App() {\n  const [count, setCount] = useState(0);\n  // This is a simple component\n  return (\n    <div className="App">\n      <h1>{GREETING}</h1>\n      <p>Edit <code>src/app.js</code> and save to reload.</p>\n      <button onClick={() => setCount(c => c + 1)}>Count: {count}</button>\n    </div>\n  );\n}\n\nexport default App;`
+                diffContent: `// Welcome to the code viewer!\nimport React, { useState } from 'react';\nimport './styles.css';\n\nconst GREETING = "Hello, Stewardly!"; // Changed greeting\n\nfunction App() {\n  const [count, setCount] = useState(0);\n  // This is a simple component\n  return (\n    <div className="App">\n      <h1>{GREETING}</h1>\n      <p>Edit <code>src/app.js</code> and save to reload.</p>\n      <button onClick={() => setCount(c => c + 1)}>Count: {count}</button>\n    </div>\n  );\n}\n\nexport default App;`
             },
             {
                 id: 'styles.css',

@@ -13,7 +13,7 @@
  */
 import { cn } from "@/lib/utils";
 
-const BRAND_IMAGE_URL = "/manus-storage/white_marble_hero_29fc0d2e.png";
+const BRAND_IMAGE_URL = "/manus-storage/stewardly-brand-marble_1b90a7ff.png";
 
 type BrandAvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 

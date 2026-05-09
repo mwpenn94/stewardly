@@ -97,7 +97,7 @@ export function useBrowserNotifications() {
       if (document.hidden || !document.hasFocus()) {
         const latest = latestNotifications?.[0] as any;
         const title = latest?.title || "New notification";
-        const body = latest?.content || "You have a new notification in Manus Next";
+        const body = latest?.content || "You have a new notification in Stewardly";
         const icon = "/favicon.ico";
 
         try {

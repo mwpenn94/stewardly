@@ -119,7 +119,7 @@ export function SovereignProjectCard({
                 {domain ? (
                   <a
                     href={`https://${domain}`}
-                    target="_blank"
+                    target="_blank" rel="noopener noreferrer"
                     rel="noopener noreferrer"
                     className="text-xs text-muted-foreground hover:text-primary truncate transition-colors"
                   >

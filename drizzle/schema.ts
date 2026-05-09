@@ -1,4 +1,4 @@
-import { int, json, mysqlEnum, mysqlTable, text, timestamp, varchar, bigint, boolean, index } from "drizzle-orm/mysql-core";
+import { int, json, mysqlEnum, mysqlTable, text, timestamp, varchar, bigint, boolean, boolean as mysqlBoolean, index, uniqueIndex, decimal, primaryKey, unique, date, float } from "drizzle-orm/mysql-core";
 import { nanoid } from "nanoid";
 
 /**
@@ -22,6 +22,53 @@ export const users = mysqlTable("users", {
   stripeCustomerId: varchar("stripeCustomerId", { length: 128 }),
   /** Stripe subscription ID — set on subscription creation */
   stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 128 }),
+  /** Stripe subscription status (active, trialing, past_due, canceled, etc.) */
+  stripeSubscriptionStatus: varchar("stripeSubscriptionStatus", { length: 64 }),
+  /** Stripe plan / price id */
+  stripePlanId: varchar("stripePlanId", { length: 128 }),
+  /** Stripe current period end (epoch ms) */
+  stripeCurrentPeriodEnd: bigint("stripeCurrentPeriodEnd", { mode: "number" }),
+  /** Auth tier — anonymous (guest), free, premium, etc. Source-app compatible. */
+  authTier: varchar("authTier", { length: 32 }).default("free"),
+  /** Auth provider (google, linkedin, github, microsoft365, password, manus) */
+  authProvider: varchar("authProvider", { length: 32 }),
+  /** Hashed password (bcrypt) for password-based auth */
+  passwordHash: varchar("passwordHash", { length: 255 }),
+  /** Avatar URL */
+  avatarUrl: text("avatarUrl"),
+  /** TOS acceptance timestamp */
+  tosAcceptedAt: timestamp("tosAcceptedAt"),
+  /** JSON blob for arbitrary user settings (theme, prefs cache, etc.) */
+  settings: json("settings"),
+  /** Suitability questionnaire completion + data (financial profile) */
+  suitabilityCompleted: boolean("suitabilityCompleted").default(false),
+  suitabilityData: json("suitabilityData"),
+  /** Style profile blob (used by personalization engine) */
+  styleProfile: json("styleProfile"),
+  /** Anonymous conversation count (for guest gating) */
+  anonymousConversationCount: int("anonymousConversationCount").default(0),
+  /** Affiliate organization id (which firm this user joined under) */
+  affiliateOrgId: int("affiliateOrgId"),
+  /** Job title and employer (from LinkedIn / manual) */
+  jobTitle: varchar("jobTitle", { length: 255 }),
+  employerName: varchar("employerName", { length: 255 }),
+  /** Profile enrichment metadata */
+  profileEnrichedAt: timestamp("profileEnrichedAt"),
+  profileEnrichmentSource: varchar("profileEnrichmentSource", { length: 64 }),
+  /** Sign-in data blob (raw OAuth payload for debugging) */
+  signInDataJson: json("signInDataJson"),
+  /** Provider-specific identifiers + enriched profile data */
+  googleId: varchar("googleId", { length: 128 }),
+  googlePhone: varchar("googlePhone", { length: 64 }),
+  googleBirthday: varchar("googleBirthday", { length: 32 }),
+  googleGender: varchar("googleGender", { length: 32 }),
+  googleAddressJson: json("googleAddressJson"),
+  googleOrganizationsJson: json("googleOrganizationsJson"),
+  linkedinId: varchar("linkedinId", { length: 128 }),
+  linkedinHeadline: varchar("linkedinHeadline", { length: 512 }),
+  linkedinIndustry: varchar("linkedinIndustry", { length: 128 }),
+  linkedinLocation: varchar("linkedinLocation", { length: 255 }),
+  linkedinProfileUrl: varchar("linkedinProfileUrl", { length: 512 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -36,7 +83,7 @@ export const tasks = mysqlTable("tasks", {
   externalId: varchar("externalId", { length: 64 }).notNull().unique(),
   userId: int("userId").notNull(),
   title: varchar("title", { length: 500 }).notNull(),
-  status: mysqlEnum("status", ["idle", "running", "completed", "error", "paused", "stopped"]).default("idle").notNull(),
+  status: mysqlEnum("status", ["idle", "running", "completed", "error", "paused", "stopped", "input_required"]).default("idle").notNull(),
   workspaceUrl: text("workspaceUrl"),
   currentStep: varchar("currentStep", { length: 500 }),
   totalSteps: int("totalSteps"),
@@ -1675,3 +1722,1308 @@ export const orchestrationRuns = mysqlTable("orchestration_runs", {
 }));
 export type OrchestrationRun = typeof orchestrationRuns.$inferSelect;
 export type InsertOrchestrationRun = typeof orchestrationRuns.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stewardly v3 integration schema additions (ported from stewardly-ai)
+// Tables already exist in TiDB (created by Stewardly _additive migrations).
+// These exports are required by server/services/{snapTrade,plaidTokenStore}.ts
+// and server/routers/plaid.ts so the typed Drizzle queries compile.
+// ─────────────────────────────────────────────────────────────────────────────
+export const integrationProviders = mysqlTable("integration_providers", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  slug: varchar("slug", { length: 50 }).notNull().unique(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  category: mysqlEnum("category", [
+    "crm", "messaging", "carrier", "investments", "insurance",
+    "demographics", "economic", "enrichment", "regulatory", "property", "middleware",
+    "marketing", "recruiting", "government"
+  ]).notNull(),
+  ownershipTier: mysqlEnum("ownership_tier", ["platform", "organization", "professional", "client"]).notNull(),
+  authMethod: mysqlEnum("auth_method", [
+    "oauth2", "api_key", "bearer_token", "hmac_webhook", "manual_upload", "none"
+  ]).notNull(),
+  baseUrl: varchar("base_url", { length: 500 }),
+  docsUrl: varchar("docs_url", { length: 500 }),
+  signupUrl: varchar("signup_url", { length: 500 }),
+  freeTierDescription: text("free_tier_description"),
+  freeTierLimit: varchar("free_tier_limit", { length: 200 }),
+  logoUrl: varchar("logo_url", { length: 500 }),
+  isActive: mysqlBoolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type IntegrationProvider = typeof integrationProviders.$inferSelect;
+
+// ─── INTEGRATION CONNECTIONS (Configured connections per owner) ───────────
+export const integrationConnections = mysqlTable("integration_connections", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  providerId: varchar("provider_id", { length: 36 }).notNull(),
+  ownershipTier: mysqlEnum("ownership_tier", ["platform", "organization", "professional", "client"]).notNull(),
+  ownerId: varchar("owner_id", { length: 36 }).notNull(),
+  organizationId: int("organization_id"),
+  userId: int("user_id"),
+  status: mysqlEnum("status", ["connected", "disconnected", "error", "pending", "expired"]).default("pending"),
+  credentialsEncrypted: text("credentials_encrypted"),
+  configJson: json("config_json"),
+  lastSyncAt: timestamp("last_sync_at"),
+  lastSyncStatus: mysqlEnum("last_sync_status", ["success", "partial", "failed"]),
+  lastSyncError: text("last_sync_error"),
+  recordsSynced: int("records_synced").default(0),
+  usageThisPeriod: int("usage_this_period").default(0),
+  usagePeriodStart: timestamp("usage_period_start"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+    providerIdIdx: index("idx_integration_connections_provider_id").on(table.providerId),
+    ownerIdIdx: index("idx_integration_connections_owner_id").on(table.ownerId),
+    organizationIdIdx: index("idx_integration_connections_organization_id").on(table.organizationId),
+    userIdIdx: index("idx_integration_connections_user_id").on(table.userId),
+  }));
+export type IntegrationConnection = typeof integrationConnections.$inferSelect;
+
+// ─── INTEGRATION SYNC LOGS (Audit trail of sync operations) ──────────────
+export const integrationSyncLogs = mysqlTable("integration_sync_logs", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  connectionId: varchar("connection_id", { length: 36 }).notNull(),
+  syncType: mysqlEnum("sync_type", ["full", "incremental", "webhook", "manual_upload", "on_demand"]).notNull(),
+  direction: mysqlEnum("direction", ["inbound", "outbound", "bidirectional"]).notNull(),
+  startedAt: timestamp("started_at").notNull(),
+  completedAt: timestamp("completed_at"),
+  status: mysqlEnum("status", ["running", "success", "partial", "failed", "cancelled"]).notNull(),
+  recordsCreated: int("records_created").default(0),
+  recordsUpdated: int("records_updated").default(0),
+  recordsFailed: int("records_failed").default(0),
+  errorDetails: json("error_details"),
+  triggeredBy: mysqlEnum("triggered_by", ["schedule", "webhook", "manual", "system"]).notNull(),
+  triggeredByUserId: int("triggered_by_user_id"),
+}, (table) => ({
+    connectionIdIdx: index("idx_integration_sync_logs_connection_id").on(table.connectionId),
+    triggeredByUserIdIdx: index("idx_integration_sync_logs_triggered_by_user_id").on(table.triggeredByUserId),
+  }));
+export type IntegrationSyncLog = typeof integrationSyncLogs.$inferSelect;
+
+// ─── INTEGRATION FIELD MAPPINGS ──────────────────────────────────────────
+export const integrationFieldMappings = mysqlTable("integration_field_mappings", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  connectionId: varchar("connection_id", { length: 36 }).notNull(),
+  externalField: varchar("external_field", { length: 200 }).notNull(),
+  internalTable: varchar("internal_table", { length: 100 }).notNull(),
+  internalField: varchar("internal_field", { length: 200 }).notNull(),
+  transform: mysqlEnum("transform", [
+    "direct", "lowercase", "uppercase", "date_parse", "phone_e164",
+    "currency_cents", "boolean_parse", "custom"
+  ]).default("direct"),
+  customTransform: text("custom_transform"),
+  isActive: mysqlBoolean("is_active").default(true),
+}, (table) => ({
+    connectionIdIdx: index("idx_integration_field_mappings_connection_id").on(table.connectionId),
+  }));
+export type IntegrationFieldMapping = typeof integrationFieldMappings.$inferSelect;
+
+// ─── INTEGRATION WEBHOOK EVENTS (Raw inbound webhook log) ────────────────
+export const integrationWebhookEvents = mysqlTable("integration_webhook_events", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  connectionId: varchar("connection_id", { length: 36 }).notNull(),
+  providerSlug: varchar("provider_slug", { length: 50 }).notNull(),
+  eventType: varchar("event_type", { length: 100 }).notNull(),
+  payloadJson: json("payload_json").notNull(),
+  signatureValid: mysqlBoolean("signature_valid").notNull(),
+  processedAt: timestamp("processed_at"),
+  processingStatus: mysqlEnum("processing_status", ["pending", "processed", "failed", "skipped"]).default("pending"),
+  processingError: text("processing_error"),
+  receivedAt: timestamp("received_at").defaultNow().notNull(),
+}, (table) => ({
+    connectionIdIdx: index("idx_integration_webhook_events_connection_id").on(table.connectionId),
+  }));
+export type IntegrationWebhookEvent = typeof integrationWebhookEvents.$inferSelect;
+
+// ─── ENRICHMENT CACHE (Cached enrichment lookups) ────────────────────────
+export const enrichmentCache = mysqlTable("enrichment_cache", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  providerSlug: varchar("provider_slug", { length: 50 }).notNull(),
+  lookupKey: varchar("lookup_key", { length: 500 }).notNull(),
+  lookupType: varchar("lookup_type", { length: 50 }).notNull(),
+  resultJson: json("result_json").notNull(),
+  qualityScore: decimal("quality_score", { precision: 3, scale: 2 }),
+  fetchedAt: timestamp("fetched_at").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  hitCount: int("hit_count").default(1),
+  connectionId: varchar("connection_id", { length: 36 }),
+}, (table) => ({
+    connectionIdIdx: index("idx_enrichment_cache_connection_id").on(table.connectionId),
+  }));
+export type EnrichmentCacheEntry = typeof enrichmentCache.$inferSelect;
+
+// ─── CARRIER IMPORT TEMPLATES (Parsing templates for manual uploads) ─────
+export const carrierImportTemplates = mysqlTable("carrier_import_templates", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  carrierSlug: varchar("carrier_slug", { length: 50 }).notNull(),
+  reportType: varchar("report_type", { length: 100 }).notNull(),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  columnMappings: json("column_mappings").notNull(),
+  parserType: mysqlEnum("parser_type", ["csv", "pdf_table", "pdf_ocr", "excel"]).notNull(),
+  sampleHeaders: json("sample_headers"),
+  isSystem: mysqlBoolean("is_system").default(false),
+  createdBy: int("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const snapTradeUsers = mysqlTable("snaptrade_users", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: int("user_id").notNull(),
+  snapTradeUserId: varchar("snaptrade_user_id", { length: 200 }).notNull(),
+  snapTradeUserSecretEncrypted: text("snaptrade_user_secret_encrypted").notNull(),
+  status: mysqlEnum("status", ["active", "disabled", "deleted"]).default("active").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+    userIdIdx: index("idx_snaptrade_users_user_id").on(table.userId),
+    snapTradeUserIdIdx: index("idx_snaptrade_users_snap_trade_user_id").on(table.snapTradeUserId),
+  }));
+export type SnapTradeUser = typeof snapTradeUsers.$inferSelect;
+
+// ─── SNAPTRADE BROKERAGE CONNECTIONS (Per-user brokerage links) ──────────
+export const snapTradeBrokerageConnections = mysqlTable("snaptrade_brokerage_connections", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: int("user_id").notNull(),
+  snapTradeUserId: varchar("snaptrade_user_id", { length: 36 }).notNull(),
+  brokerageAuthorizationId: varchar("brokerage_authorization_id", { length: 200 }).notNull(),
+  brokerageName: varchar("brokerage_name", { length: 200 }),
+  brokerageType: varchar("brokerage_type", { length: 100 }),
+  status: mysqlEnum("status", ["active", "disabled", "error", "deleted"]).default("active").notNull(),
+  disabledReason: text("disabled_reason"),
+  lastSyncAt: timestamp("last_sync_at"),
+  lastSyncStatus: mysqlEnum("last_sync_status", ["success", "partial", "failed"]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+    userIdIdx: index("idx_snaptrade_brokerage_connections_user_id").on(table.userId),
+    snapTradeUserIdIdx: index("idx_snaptrade_brokerage_connections_snap_trade_user_id").on(table.snapTradeUserId),
+    brokerageAuthorizationIdIdx: index("idx_snaptrade_brokerage_connections_brokerage_authorization_id").on(table.brokerageAuthorizationId),
+  }));
+export type SnapTradeBrokerageConnection = typeof snapTradeBrokerageConnections.$inferSelect;
+
+// ─── SNAPTRADE ACCOUNTS (Brokerage accounts discovered per connection) ───
+export const snapTradeAccounts = mysqlTable("snaptrade_accounts", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: int("user_id").notNull(),
+  connectionId: varchar("connection_id", { length: 36 }).notNull(),
+  snapTradeAccountId: varchar("snaptrade_account_id", { length: 200 }).notNull(),
+  accountName: varchar("account_name", { length: 200 }),
+  accountNumber: varchar("account_number", { length: 100 }),
+  accountType: varchar("account_type", { length: 100 }),
+  institutionName: varchar("institution_name", { length: 200 }),
+  cashBalance: decimal("cash_balance", { precision: 18, scale: 4 }),
+  marketValue: decimal("market_value", { precision: 18, scale: 4 }),
+  totalValue: decimal("total_value", { precision: 18, scale: 4 }),
+  currency: varchar("currency", { length: 10 }).default("USD"),
+  lastSyncAt: timestamp("last_sync_at"),
+  syncDataJson: json("sync_data_json"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+    userIdIdx: index("idx_snaptrade_accounts_user_id").on(table.userId),
+    connectionIdIdx: index("idx_snaptrade_accounts_connection_id").on(table.connectionId),
+    snapTradeAccountIdIdx: index("idx_snaptrade_accounts_snap_trade_account_id").on(table.snapTradeAccountId),
+  }));
+export type SnapTradeAccount = typeof snapTradeAccounts.$inferSelect;
+
+// ─── SNAPTRADE POSITIONS (Holdings per account) ──────────────────────────
+export const snapTradePositions = mysqlTable("snaptrade_positions", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: int("user_id").notNull(),
+  accountId: varchar("account_id", { length: 36 }).notNull(),
+  symbolTicker: varchar("symbol_ticker", { length: 20 }),
+  symbolName: varchar("symbol_name", { length: 300 }),
+  symbolType: varchar("symbol_type", { length: 50 }),
+  units: decimal("units", { precision: 18, scale: 8 }),
+  averagePrice: decimal("average_price", { precision: 18, scale: 4 }),
+  currentPrice: decimal("current_price", { precision: 18, scale: 4 }),
+  marketValue: decimal("market_value", { precision: 18, scale: 4 }),
+  currency: varchar("currency", { length: 10 }).default("USD"),
+  rawJson: json("raw_json"),
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+    userIdIdx: index("idx_snaptrade_positions_user_id").on(table.userId),
+    accountIdIdx: index("idx_snaptrade_positions_account_id").on(table.accountId),
+  }));
+export type SnapTradePosition = typeof snapTradePositions.$inferSelect;
+
+
+// ─── PROFESSIONAL VERIFICATIONS ─────────────────────────────────────────
+// DB table: professional_verifications
+export const professionalVerifications = mysqlTable("professional_verifications", {
+  id: int("id").autoincrement().primaryKey(),
+  professionalId: int("professional_id").notNull(),
+  verificationSource: mysqlEnum("verification_source", [
+    "finra_brokercheck", "sec_iapd", "cfp_board", "nasba_cpaverify",
+    "nipr_pdb", "nmls", "state_bar", "ibba", "martindale", "avvo"
+  ]).notNull(),
+  verificationStatus: mysqlEnum("verification_status", [
+    "verified", "not_found", "flagged", "expired", "pending"
+  ]).notNull(),
+  externalId: varchar("external_id", { length: 100 }),
+  externalUrl: varchar("external_url", { length: 500 }),
+  rawData: json("raw_data"),
+  disclosures: json("disclosures"),
+  licenseStates: json("license_states"),
+  licenseExpiration: timestamp("license_expiration"),
+  verifiedAt: bigint("verified_at", { mode: "number" }).notNull(),
+  expiresAt: bigint("expires_at", { mode: "number" }),
+  verificationMethod: mysqlEnum("verification_method", [
+    "api", "scrape", "manual", "n8n_workflow"
+  ]).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+    professionalIdIdx: index("idx_professional_verifications_professional_id").on(table.professionalId),
+    externalIdIdx: index("idx_professional_verifications_external_id").on(table.externalId),
+  }));
+export type ProfessionalVerification = typeof professionalVerifications.$inferSelect;
+export type InsertProfessionalVerification = typeof professionalVerifications.$inferInsert;
+
+// ─── COI VERIFICATION BADGES ────────────────────────────────────────────
+// DB table: coi_verification_badges
+export const coiVerificationBadges = mysqlTable("coi_verification_badges", {
+  id: int("id").autoincrement().primaryKey(),
+  coiContactId: int("coi_contact_id"),
+  professionalId: int("professional_id"),
+  badgeType: mysqlEnum("badge_type", [
+    "license_active", "cfp_certified", "cpa_active", "bar_good_standing",
+    "nmls_authorized", "nipr_licensed", "cbi_certified", "no_disclosures",
+    "fiduciary", "am_best_rated", "peer_rated"
+  ]).notNull(),
+  badgeLabel: varchar("badge_label", { length: 100 }),
+  badgeData: json("badge_data"),
+  confidenceScore: decimal("confidence_score", { precision: 3, scale: 2 }),
+  sourceVerificationId: int("source_verification_id"),
+  grantedAt: bigint("granted_at", { mode: "number" }).notNull(),
+  expiresAt: bigint("expires_at", { mode: "number" }),
+  active: mysqlBoolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+    coiContactIdIdx: index("idx_coi_verification_badges_coi_contact_id").on(table.coiContactId),
+    professionalIdIdx: index("idx_coi_verification_badges_professional_id").on(table.professionalId),
+    sourceVerificationIdIdx: index("idx_coi_verification_badges_source_verification_id").on(table.sourceVerificationId),
+  }));
+export type CoiVerificationBadge = typeof coiVerificationBadges.$inferSelect;
+export type InsertCoiVerificationBadge = typeof coiVerificationBadges.$inferInsert;
+
+// ─── VERIFICATION SCHEDULES ─────────────────────────────────────────────
+// DB table: verification_schedules
+export const verificationSchedules = mysqlTable("verification_schedules", {
+  id: int("id").autoincrement().primaryKey(),
+  professionalId: int("professional_id").notNull(),
+  verificationSource: mysqlEnum("verification_source", [
+    "finra_brokercheck", "sec_iapd", "cfp_board", "nasba_cpaverify",
+    "nipr_pdb", "nmls", "state_bar", "ibba", "martindale", "avvo"
+  ]).notNull(),
+  frequencyDays: int("frequency_days").notNull().default(30),
+  lastRunAt: bigint("last_run_at", { mode: "number" }),
+  nextRunAt: bigint("next_run_at", { mode: "number" }).notNull(),
+  enabled: mysqlBoolean("enabled").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+    professionalIdIdx: index("idx_verification_schedules_professional_id").on(table.professionalId),
+  }));
+export type VerificationSchedule = typeof verificationSchedules.$inferSelect;
+export type InsertVerificationSchedule = typeof verificationSchedules.$inferInsert;
+
+// ─── PREMIUM FINANCE RATES ──────────────────────────────────────────────
+// DB table: premium_finance_rates
+export const premiumFinanceRates = mysqlTable("premium_finance_rates", {
+  id: int("id").autoincrement().primaryKey(),
+  rateDate: date("rate_date").notNull(),
+  sofr: decimal("sofr", { precision: 6, scale: 4 }),
+  sofr30: decimal("sofr_30", { precision: 6, scale: 4 }),
+  sofr90: decimal("sofr_90", { precision: 6, scale: 4 }),
+  treasury10y: decimal("treasury_10y", { precision: 6, scale: 4 }),
+  treasury30y: decimal("treasury_30y", { precision: 6, scale: 4 }),
+  primeRate: decimal("prime_rate", { precision: 6, scale: 4 }),
+  fetchedAt: bigint("fetched_at", { mode: "number" }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type PremiumFinanceRate = typeof premiumFinanceRates.$inferSelect;
+export type InsertPremiumFinanceRate = typeof premiumFinanceRates.$inferInsert;
+
+// ============================================================
+// DATA SEEDING & PRODUCT INTELLIGENCE TABLES (Prompt 2)
+// ============================================================
+
+// --- Phase 1: Tax & Government Data Seeds ---
+
+export const taxParameters = mysqlTable("tax_parameters", {
+  id: int("id").autoincrement().primaryKey(),
+  taxYear: int("tax_year").notNull(),
+  parameterName: varchar("parameter_name", { length: 100 }).notNull(),
+  parameterCategory: varchar("parameter_category", { length: 50 }).notNull(),
+  filingStatus: varchar("filing_status", { length: 50 }).default("all"),
+  valueJson: json("value_json").notNull(),
+  sourceUrl: varchar("source_url", { length: 500 }),
+  effectiveDate: varchar("effective_date", { length: 20 }).notNull(),
+  expiryDate: varchar("expiry_date", { length: 20 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type TaxParameter = typeof taxParameters.$inferSelect;
+export type InsertTaxParameter = typeof taxParameters.$inferInsert;
+
+export const ssaParameters = mysqlTable("ssa_parameters", {
+  id: int("id").autoincrement().primaryKey(),
+  parameterYear: int("parameter_year").notNull(),
+  parameterName: varchar("parameter_name", { length: 100 }).notNull(),
+  valueJson: json("value_json").notNull(),
+  sourceUrl: varchar("source_url", { length: 500 }),
+  effectiveDate: varchar("effective_date", { length: 20 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type SsaParameter = typeof ssaParameters.$inferSelect;
+export type InsertSsaParameter = typeof ssaParameters.$inferInsert;
+
+export const ssaLifeTables = mysqlTable("ssa_life_tables", {
+  id: int("id").autoincrement().primaryKey(),
+  age: int("age").notNull(),
+  sex: varchar("sex", { length: 10 }).notNull(),
+  probabilityOfDeath: varchar("probability_of_death", { length: 20 }).notNull(),
+  lifeExpectancy: varchar("life_expectancy", { length: 10 }).notNull(),
+  tableYear: int("table_year").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const plaidItems = mysqlTable("plaid_items", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull(),
+  itemId: varchar("item_id", { length: 255 }).notNull(),
+  accessTokenEncrypted: text("access_token_encrypted").notNull(),
+  institutionId: varchar("institution_id", { length: 100 }),
+  institutionName: varchar("institution_name", { length: 255 }),
+  status: varchar("status", { length: 50 }).notNull().default("active"),
+  consentExpiresAt: bigint("consent_expires_at", { mode: "number" }),
+  lastSyncedAt: bigint("last_synced_at", { mode: "number" }),
+  errorCode: varchar("error_code", { length: 100 }),
+  errorMessage: text("error_message"),
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+}, (table) => ({
+  userIdIdx: index("idx_plaid_items_user_id").on(table.userId),
+  itemIdIdx: index("idx_plaid_items_item_id").on(table.itemId),
+}));
+export type PlaidItem = typeof plaidItems.$inferSelect;
+export type InsertPlaidItem = typeof plaidItems.$inferInsert;
+
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stewardly 5-Layer Architecture (declarations match live DB shape exactly).
+// L1 Platform (global_admin) — base prompt, model defaults, global guardrails
+// L2 Organization (org_admin) — brand voice, compliance, prompt overlay
+// L3 Manager (manager) — team focus, reporting requirements
+// L4 Professional (professional) — specialization, methodology, per-client
+// L5 User (user) — personal style, format, goals (extends `userPreferences`)
+// Cascade: prompt APPEND, tone OVERRIDE, guardrails UNION, approved INTERSECT.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const organizations = mysqlTable("organizations", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 256 }).notNull(),
+  slug: varchar("slug", { length: 128 }).notNull(),
+  description: text("description"),
+  website: varchar("website", { length: 512 }),
+  ein: varchar("ein", { length: 20 }),
+  industry: varchar("industry", { length: 128 }),
+  size: mysqlEnum("size", ["solo", "small", "medium", "large", "enterprise"]),
+  // L1 white-label columns (camelCase to match live DB).
+  logoUrl: varchar("logoUrl", { length: 500 }),
+  customDomain: varchar("customDomain", { length: 256 }),
+  themeColor: varchar("themeColor", { length: 32 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = typeof organizations.$inferInsert;
+
+export const userOrganizationRoles = mysqlTable("user_organization_roles", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  organizationId: int("organizationId").notNull(),
+  globalRole: mysqlEnum("globalRole", ["global_admin", "user"]).default("user"),
+  organizationRole: mysqlEnum("organizationRole", ["org_admin", "manager", "professional", "user"]).default("user"),
+  managerId: int("managerId"),
+  professionalId: int("professionalId"),
+  status: mysqlEnum("status", ["active", "inactive", "invited", "pending_approval"]),
+  invitedAt: timestamp("invitedAt"),
+  approvedAt: timestamp("approvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type UserOrganizationRole = typeof userOrganizationRoles.$inferSelect;
+export type InsertUserOrganizationRole = typeof userOrganizationRoles.$inferInsert;
+
+// L1 — Platform AI Settings (singleton, edited only by global_admin).
+export const platformAiSettings = mysqlTable("platform_ai_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  settingKey: varchar("settingKey", { length: 64 }).notNull(),
+  baseSystemPrompt: text("baseSystemPrompt"),
+  defaultTone: varchar("defaultTone", { length: 64 }),
+  defaultResponseFormat: varchar("defaultResponseFormat", { length: 64 }),
+  defaultResponseLength: varchar("defaultResponseLength", { length: 64 }),
+  modelPreferences: json("modelPreferences"),
+  ensembleWeights: json("ensembleWeights"),
+  globalGuardrails: json("globalGuardrails"),
+  prohibitedTopics: json("prohibitedTopics"),
+  maxTokensDefault: int("maxTokensDefault"),
+  temperatureDefault: float("temperatureDefault"),
+  enabledFocusModes: json("enabledFocusModes"),
+  platformDisclaimer: text("platformDisclaimer"),
+  defaultTtsVoice: varchar("defaultTtsVoice", { length: 64 }),
+  defaultSpeechRate: float("defaultSpeechRate"),
+  defaultAutoPlayVoice: boolean("defaultAutoPlayVoice"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type PlatformAiSetting = typeof platformAiSettings.$inferSelect;
+export type InsertPlatformAiSetting = typeof platformAiSettings.$inferInsert;
+
+// L2 — Organization AI Settings (per-org, edited by org_admin).
+export const organizationAiSettings = mysqlTable("organization_ai_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  organizationId: int("organizationId").notNull(),
+  organizationName: varchar("organizationName", { length: 256 }).notNull(),
+  brandVoice: text("brandVoice"),
+  approvedProductCategories: json("approvedProductCategories"),
+  prohibitedTopics: json("prohibitedTopics"),
+  complianceLanguage: text("complianceLanguage"),
+  customDisclaimers: text("customDisclaimers"),
+  promptOverlay: text("promptOverlay"),
+  toneStyle: varchar("toneStyle", { length: 64 }),
+  responseFormat: varchar("responseFormat", { length: 64 }),
+  responseLength: varchar("responseLength", { length: 64 }),
+  modelPreferences: json("modelPreferences"),
+  ensembleWeights: json("ensembleWeights"),
+  temperature: float("temperature"),
+  maxTokens: int("maxTokens"),
+  enabledFocusModes: json("enabledFocusModes"),
+  defaultTtsVoice: varchar("defaultTtsVoice", { length: 64 }),
+  defaultSpeechRate: float("defaultSpeechRate"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type OrganizationAiSetting = typeof organizationAiSettings.$inferSelect;
+
+// L3 — Manager AI Settings.
+export const managerAiSettings = mysqlTable("manager_ai_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  managerId: int("managerId").notNull(),
+  organizationId: int("organizationId"),
+  teamFocusAreas: json("teamFocusAreas"),
+  clientSegmentTargeting: text("clientSegmentTargeting"),
+  reportingRequirements: json("reportingRequirements"),
+  promptOverlay: text("promptOverlay"),
+  toneStyle: varchar("toneStyle", { length: 64 }),
+  responseFormat: varchar("responseFormat", { length: 64 }),
+  responseLength: varchar("responseLength", { length: 64 }),
+  modelPreferences: json("modelPreferences"),
+  ensembleWeights: json("ensembleWeights"),
+  temperature: float("temperature"),
+  maxTokens: int("maxTokens"),
+  defaultTtsVoice: varchar("defaultTtsVoice", { length: 64 }),
+  defaultSpeechRate: float("defaultSpeechRate"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ManagerAiSetting = typeof managerAiSettings.$inferSelect;
+
+// L4 — Professional AI Settings.
+export const professionalAiSettings = mysqlTable("professional_ai_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  professionalId: int("professionalId").notNull(),
+  organizationId: int("organizationId"),
+  managerId: int("managerId"),
+  specialization: varchar("specialization", { length: 256 }),
+  methodology: text("methodology"),
+  communicationStyle: text("communicationStyle"),
+  perClientOverrides: json("perClientOverrides"),
+  promptOverlay: text("promptOverlay"),
+  toneStyle: varchar("toneStyle", { length: 64 }),
+  responseFormat: varchar("responseFormat", { length: 64 }),
+  responseLength: varchar("responseLength", { length: 64 }),
+  modelPreferences: json("modelPreferences"),
+  ensembleWeights: json("ensembleWeights"),
+  temperature: float("temperature"),
+  maxTokens: int("maxTokens"),
+  defaultTtsVoice: varchar("defaultTtsVoice", { length: 64 }),
+  defaultSpeechRate: float("defaultSpeechRate"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ProfessionalAiSetting = typeof professionalAiSettings.$inferSelect;
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// L1 Platform API keys — issued by global_admin only. Used for partner
+// integrations (read-only by default). Stored as the SHA-256 hash of the
+// secret so the plaintext is never persisted; the plaintext is shown to the
+// caller of `admin.issueApiKey` once and never again.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const platformApiKeys = mysqlTable("platform_api_keys", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Public, human-readable prefix (e.g. "swly_live_xxxx"). Safe to display. */
+  keyPrefix: varchar("keyPrefix", { length: 32 }).notNull().unique(),
+  /** SHA-256 hex of the full secret. */
+  keyHash: varchar("keyHash", { length: 128 }).notNull(),
+  /** Optional human label, e.g. "Acme integration". */
+  label: varchar("label", { length: 256 }),
+  /** Comma-separated scope vocabulary: read:engines, read:economic-data, ... */
+  scopes: text("scopes"),
+  /** Numeric id of the global_admin that issued this key. */
+  issuedByUserId: int("issuedByUserId").notNull(),
+  /** Optional expiry. NULL = no expiry. */
+  expiresAt: timestamp("expiresAt"),
+  /** When the key was last used to authenticate; NULL = never. */
+  lastUsedAt: timestamp("lastUsedAt"),
+  /** Soft-revoke timestamp; non-null means the key no longer authenticates. */
+  revokedAt: timestamp("revokedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type PlatformApiKey = typeof platformApiKeys.$inferSelect;
+export type InsertPlatformApiKey = typeof platformApiKeys.$inferInsert;
+
+
+// === Auto-appended re-exports from schema-ai.ts ===
+// These tables/types come from the canonical stewardly-ai schema port.
+// To remove: edit drizzle/schema-ai.ts directly.
+// Generated 393 missing names.
+
+export {
+  accessPolicies,
+  adImpressionLog,
+  adPlacements,
+  advisoryExecutions,
+  affiliatedResources,
+  agentActions,
+  agentAutonomyLevels,
+  agentInstances,
+  agentPerformance,
+  agentTemplates,
+  aiConfigLayers,
+  aiResponseQuality,
+  aiToolCalls,
+  aiToolExecutions,
+  aiTools,
+  analyticalModels,
+  annualReviews,
+  assessmentSessions,
+  audioScripts,
+  audioStudyProgress,
+  auditTrail,
+  authEnrichmentLog,
+  authProviderTokens,
+  benchmarkAggregates,
+  benchmarkComparisons,
+  beneficiaryReviews,
+  billingEvents,
+  browserSessions,
+  bulkImportBatches,
+  businessExitPlans,
+} from "./schema-ai";
+
+export {
+  businessPlans,
+  cadenceComplianceAudit,
+  cadenceEnrollments,
+  cadenceOptOutRegistry,
+  cadenceTouchLog,
+  calculatorResultCache,
+  calculatorScenarios,
+  capabilityModes,
+  cardReviews,
+  cardSchedules,
+  carrierConnections,
+  carrierSubmissions,
+  ceCredits,
+  chapterPrerequisites,
+  clientAssociations,
+  clientDiscovery,
+  clientGoals,
+  clientPlanOutcomes,
+  clientSegments,
+  coaActuals,
+  coaCampaigns,
+  coachingMessages,
+  coiContacts,
+  coiDisclosures,
+  commsLog,
+  communicationArchive,
+  communityPosts,
+  communityReplies,
+  compensationBrackets,
+  complianceAudit,
+} from "./schema-ai";
+
+export {
+  complianceAuditSamples,
+  complianceFlags,
+  compliancePredictions,
+  compliancePrescreening,
+  complianceReviews,
+  complianceRules,
+  complianceWeeklyBriefs,
+  consentTracking,
+  constitutionalViolations,
+  consultationBookings,
+  contentArticles,
+  contentShares,
+  contextAssemblyLog,
+  conversationComplianceScores,
+  conversationFolders,
+  conversationTopics,
+  conversations,
+  creditProfiles,
+  crmSyncLog,
+  dataAccessAudit,
+  dataAuthorizations,
+  dataFreshnessRegistry,
+  dataQualityScores,
+  dataSources,
+  dataValueScores,
+  delegations,
+  deploymentChecks,
+  deploymentHistory,
+  digitalAssetInventory,
+  disclaimerAudit,
+} from "./schema-ai";
+
+export {
+  disclaimerInteractions,
+  disclaimerTranslations,
+  disclaimerVersions,
+  documentAnnotations,
+  documentChunks,
+  documentExtractions,
+  documentTagMap,
+  documentTags,
+  documentTemplates,
+  documentVersions,
+  documents,
+  dripifyWebhookEvents,
+  economicHistory,
+  educationModules,
+  educationProgress,
+  educationTriggers,
+  emailCampaigns,
+  emailSends,
+  embedConfigurations,
+  encryptedFieldsRegistry,
+  encryptionKeys,
+  engagementLetters,
+  engagementScores,
+  enrichmentCohorts,
+  enrichmentDatasets,
+  enrichmentMatches,
+  entityResolutionRules,
+  equityGrants,
+  escalationHistory,
+  esignatureTracking,
+} from "./schema-ai";
+
+export {
+  estateDocuments,
+  exchangeAnalyses,
+  exportJobs,
+  extractionPlanJobs,
+  extractionPlans,
+  fairnessTestPrompts,
+  fairnessTestResults,
+  fairnessTestRuns,
+  featureFlags,
+  featurePermissions,
+  feedback,
+  fieldSharingControls,
+  fileChunks,
+  fileDerivedEnrichments,
+  fileUploads,
+  financialProfiles,
+  financialProtectionScores,
+  gateReviews,
+  generatedDocuments,
+  ghlLocations,
+  glossaryTerms,
+  healthScores,
+  hnwNarrativeScores,
+  hypothesisTestResults,
+  importFieldMappings,
+  importJobs,
+  improvementActions,
+  improvementFeedback,
+  improvementHypotheses,
+  improvementSignals,
+} from "./schema-ai";
+
+export {
+  industryBenchmarks,
+  ingestedRecords,
+  ingestionInsights,
+  ingestionJobs,
+  insightActions,
+  insuranceApplications,
+  insuranceCarriers,
+  insuranceProducts,
+  insuranceQuotes,
+  integrationAnalysisLog,
+  integrationBlueprintRuns,
+  integrationBlueprintSamples,
+  integrationBlueprintVersions,
+  integrationBlueprints,
+  integrationHealthChecks,
+  integrationHealthSummary,
+  integrationImprovementLog,
+  integrationOptimizationCycles,
+  integrationSyncConfig,
+  iulCreditingHistory,
+  kbAccessTransitions,
+  kbSharingDefaults,
+  kbSharingPermissions,
+  kgEdges,
+  kgNodes,
+  knowledgeArticleFeedback,
+  knowledgeArticleVersions,
+  knowledgeArticles,
+  knowledgeGapFeedback,
+  knowledgeGaps,
+} from "./schema-ai";
+
+export {
+  knowledgeGraphEdges,
+  knowledgeGraphEntities,
+  knowledgeIngestionJobs,
+  layerAudits,
+  layerMetrics,
+  leadCaptureConfig,
+  leadPipeline,
+  leadProfileAccumulator,
+  leadSourcePerformance,
+  leadSources,
+  learningAchievements,
+  learningAiQuizQuestions,
+  learningBookmarks,
+  learningCases,
+  learningCeCredits,
+  learningChallengeResults,
+  learningChapters,
+  learningConnections,
+  learningContentHistory,
+  learningContentVersions,
+  learningDefinitions,
+  learningDisciplines,
+  learningDiscoveryHistory,
+  learningFlashcards,
+  learningFormulas,
+  learningFsApplications,
+  learningGroupActivity,
+  learningGroupGoals,
+  learningGroupMembers,
+  learningGroupNotes,
+} from "./schema-ai";
+
+export {
+  learningLicenses,
+  learningMasteryProgress,
+  learningPendingInvites,
+  learningPlaylistItems,
+  learningPlaylistShares,
+  learningPlaylists,
+  learningPracticeQuestions,
+  learningQuizChallenges,
+  learningRegulatoryUpdates,
+  learningSettings,
+  learningSharedQuizzes,
+  learningStreaks,
+  learningStudyGroups,
+  learningStudySessions,
+  learningSubsections,
+  learningTracks,
+  loadTestResults,
+  locationAlertThresholds,
+  ltcAnalyses,
+  managerAISettings,
+  marketDataCache,
+  marketDataSubscriptions,
+  marketEvents,
+  marketIndexHistory,
+  meddpiccScores,
+  medicareParameters,
+  meetingActionItems,
+  meetings,
+  memories,
+  memoryEpisodes,
+} from "./schema-ai";
+
+export {
+  messages,
+  mfaBackupCodes,
+  mfaSecrets,
+  modelBacktests,
+  modelCards,
+  modelOutputRecords,
+  modelRuns,
+  modelScenarios,
+  modelSchedules,
+  nitrogenRiskProfiles,
+  notificationLog,
+  officeHourRegistrations,
+  officeHours,
+  onboardingProgress,
+  orgAiConfig,
+  orgPromptCustomizations,
+  orgRetentionPolicies,
+  organizationAISettings,
+  organizationLandingPageConfig,
+  organizationRelationships,
+  paperTrades,
+  passiveActionLog,
+  passiveActionPreferences,
+  patternTransitionAssessments,
+  peerGroupMembers,
+  peerGroupMessages,
+  peerGroups,
+  performanceMetrics,
+  permissionAuditLog,
+  personalFinancialReviews,
+} from "./schema-ai";
+
+export {
+  pfmImports,
+  pfrDocuments,
+  plaidHoldings,
+  plaidWebhookLog,
+  plaidWebhooksLog,
+  planActualInsights,
+  planAdherence,
+  planningAssumptions,
+  planningNodes,
+  planningReferences,
+  planningSnapshots,
+  platformAISettings,
+  platformChangelog,
+  platformKv,
+  platformLearnings,
+  policyDeliveries,
+  portalEngagement,
+  practiceMetrics,
+  predictiveTriggers,
+  premiumFinanceCases,
+  privacyAudit,
+  privacyConsentLog,
+  proactiveEscalationRules,
+  proactiveInsights,
+  probeResults,
+  productSuitabilityEvaluations,
+  productionActuals,
+  products,
+  professionalAISettings,
+  professionalAvailability,
+} from "./schema-ai";
+
+export {
+  professionalContext,
+  professionalDocuments,
+  professionalRelationships,
+  professionalReviews,
+  professionals,
+  promptExperimentResults,
+  promptExperiments,
+  promptGoldenTests,
+  promptInteractions,
+  promptRegressionRuns,
+  promptVariants,
+  propagationActions,
+  propagationEvents,
+  propensityBiasAudits,
+  propensityFeatures,
+  propensityModels,
+  propensityScores,
+  providerHealthChecks,
+  qualityRatings,
+  rateProfiles,
+  rateRecommendations,
+  rateSignalLog,
+  reasoningTraces,
+  recommendationsLog,
+  reconciliationLog,
+  recruitDimensionScores,
+  referralTracking,
+  referrals,
+  regulatoryAlerts,
+  regulatoryImpactAnalyses,
+} from "./schema-ai";
+
+export {
+  regulatoryUpdates,
+  reportJobs,
+  reportSnapshots,
+  reportTemplates,
+  responseRatings,
+  retentionActionsLog,
+  reviewQueue,
+  richMediaEmbeds,
+  roleElevations,
+  savedAnalyses,
+  scrapeSchedules,
+  scrapingAudit,
+  scrapingCache,
+  searchCache,
+  selfDiscoveryHistory,
+  serverErrors,
+  sharedAssumptions,
+  sharedLinks,
+  smsitSyncLog,
+  studentLoans,
+  studyProgress,
+  suitabilityAssessments,
+  suitabilityChangeEvents,
+  suitabilityDimensions,
+  suitabilityHouseholdLinks,
+  suitabilityProfiles,
+  suitabilityQuestionsQueue,
+  syncEventMetrics,
+  syncRunHistory,
+  systemHealthEvents,
+} from "./schema-ai";
+
+export {
+  taxReturnReviews,
+  templateOptimizationResults,
+  transactionCategories,
+  underwritingTracking,
+  usageBudgets,
+  usageTracking,
+  userAiBoundaries,
+  userAudioOverrides,
+  userAudioPreferences,
+  userAutonomyProfiles,
+  userCapabilities,
+  userChangelogAwareness,
+  userConsents,
+  userFeatureProficiency,
+  userGuardrails,
+  userInsightsCache,
+  userLocations,
+  userMemories,
+  userPlatformEvents,
+  userProfiles,
+  userRelationships,
+  videoStreamingSessions,
+  viewAsAuditLog,
+  viewShares,
+  wealthHubAllocations,
+  webScrapeResults,
+  weightPresets,
+  workflowChecklist,
+  workflowCheckpoints,
+  workflowEventChains,
+} from "./schema-ai";
+
+export {
+  workflowExecutionLog,
+  workflowInstances,
+  zipCodeDemographics,
+} from "./schema-ai";
+
+
+
+/* ========================================================================
+ * User-Installable Apps (additive, v3-native)
+ *
+ * Three tables back the Apps drawer's three add-flows:
+ *   1. "Create new app"        → userApps (the catalog of apps a user owns)
+ *   2. "Browse public catalog" → userApps where visibility='public' + appInstalls
+ *   3. "Install from share link" → appShareLinks → appInstalls
+ *
+ * Apps are decoupled from the canonical 5 Core engines (formational,
+ * relational, missional, contextual, continuous-improvement). Core engines
+ * are bundled into the platform; userApps are user-created or community-
+ * installed extensions that show up in the Apps drawer "Installed" group.
+ * ======================================================================== */
+
+export const userApps = mysqlTable(
+  "user_apps",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** Slug used in URLs (/apps/:slug). Unique across the platform. */
+    slug: varchar("slug", { length: 96 }).notNull().unique(),
+    /** Owner of the app (user.id). */
+    ownerUserId: int("owner_user_id").notNull(),
+    /** Display name shown in the Apps drawer + catalog. */
+    name: varchar("name", { length: 200 }).notNull(),
+    /** Short description shown in catalog cards. */
+    description: text("description"),
+    /** Optional emoji or icon URL shown in the Apps drawer entry. */
+    icon: varchar("icon", { length: 256 }),
+    /** Visibility: private (owner only), unlisted (link-only), public (catalog). */
+    visibility: mysqlEnum("visibility_user_apps", ["private", "unlisted", "public"]).default("private").notNull(),
+    /** Free-form JSON config blob (UI layout, embedded prompt, tool refs). */
+    config: json("config"),
+    /** Number of times this app has been installed by other users. */
+    installCount: int("install_count").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerIdx: index("user_apps_owner_idx").on(t.ownerUserId),
+    visibilityIdx: index("user_apps_visibility_idx").on(t.visibility),
+  }),
+);
+
+export type UserApp = typeof userApps.$inferSelect;
+export type InsertUserApp = typeof userApps.$inferInsert;
+
+export const appInstalls = mysqlTable(
+  "app_installs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    appId: int("app_id").notNull(),
+    userId: int("user_id").notNull(),
+    /** How the user installed this app: created, public_catalog, share_link. */
+    installSource: mysqlEnum("install_source", ["created", "public_catalog", "share_link"]).default("created").notNull(),
+    /** Reference to the share link if installSource='share_link'. */
+    shareLinkToken: varchar("share_link_token", { length: 64 }),
+    installedAt: timestamp("installed_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdx: index("app_installs_user_idx").on(t.userId),
+    appIdx: index("app_installs_app_idx").on(t.appId),
+    uniqUserApp: unique("app_installs_user_app_uniq").on(t.userId, t.appId),
+  }),
+);
+
+export type AppInstall = typeof appInstalls.$inferSelect;
+export type InsertAppInstall = typeof appInstalls.$inferInsert;
+
+export const appShareLinks = mysqlTable(
+  "app_share_links",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** Short opaque token included in the share URL. */
+    token: varchar("token", { length: 64 }).notNull().unique(),
+    appId: int("app_id").notNull(),
+    /** User who created the share link. */
+    createdByUserId: int("created_by_user_id").notNull(),
+    /** Optional expiry; null = never expires. */
+    expiresAt: timestamp("expires_at"),
+    /** Optional max install count; null = unlimited. */
+    maxInstalls: int("max_installs"),
+    /** Number of times the link has been used to install the app. */
+    useCount: int("use_count").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    appIdx: index("app_share_links_app_idx").on(t.appId),
+  }),
+);
+
+export type AppShareLink = typeof appShareLinks.$inferSelect;
+export type InsertAppShareLink = typeof appShareLinks.$inferInsert;
+
+
+/* ========================================================================
+ * Hub Items — iOS-Home-Screen-style organizing surface (additive, v3-native)
+ *
+ * The Hub is the central organizing surface that collapsed Apps + Engines +
+ * Library entries into a single iOS-style grid. Each row is one of:
+ *   • app      — links to a userApps row (or built-in engine app via builtinId)
+ *   • artifact — saved chat / generated content / report
+ *   • file     — uploaded file blob (storage key in payload)
+ *   • folder   — container for other hubItems (parent_folder_id forms tree)
+ *
+ * Layered permissions reuse the same vocabulary as userApps + the 5-layer
+ * RBAC stack. Visibility on each item:
+ *   • private  — only owner sees / installs
+ *   • org      — anyone in `organizationId` (any L2-L5 active member)
+ *   • unlisted — anyone with the share token can install
+ *   • public   — listed in catalog, anyone signed in can install
+ *
+ * Plus optional `minRole` for org-scoped items (e.g. an artifact only
+ * managers+ in the org can see). global_admin always bypasses.
+ * ======================================================================== */
+
+export const hubItems = mysqlTable(
+  "hub_items",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** Owner user id — always the creator. */
+    ownerUserId: int("owner_user_id").notNull(),
+    /** What this item is. */
+    itemType: mysqlEnum("hub_item_type", ["app", "artifact", "file", "folder"]).notNull(),
+    /** If itemType='app' and links to a userApps row. */
+    appId: int("app_id"),
+    /** If itemType='app' and is a built-in engine app, e.g. 'engine:formational'. */
+    builtinId: varchar("builtin_id", { length: 96 }),
+    /** Display label shown on the Hub tile. */
+    label: varchar("label", { length: 200 }).notNull(),
+    /** Emoji or icon URL. Falls back to engine-default for builtin apps. */
+    icon: varchar("icon", { length: 256 }),
+    /** Tile background color (hex or oklch token). */
+    color: varchar("color", { length: 32 }),
+    /** Parent folder id (null = root grid). */
+    parentFolderId: int("parent_folder_id"),
+    /** Page index on the iOS-style grid (0-indexed). */
+    pageIndex: int("page_index").default(0).notNull(),
+    /** Sort order within the page (or within parent folder). */
+    sortOrder: int("sort_order").default(0).notNull(),
+    /** Pinned to dock (always visible across pages). */
+    pinnedToDock: int("pinned_to_dock").default(0).notNull(),
+    /** Layered permission visibility. */
+    visibility: mysqlEnum("hub_visibility", ["private", "org", "unlisted", "public"])
+      .default("private")
+      .notNull(),
+    /** Org scope when visibility='org'. */
+    organizationId: int("organization_id"),
+    /**
+     * Minimum org role required to see this item when visibility='org'.
+     * null = any active member. global_admin always bypasses.
+     */
+    minRole: mysqlEnum("hub_min_role", ["user", "professional", "manager", "org_admin"]),
+    /** Free-form payload: storage key for file, artifact body for artifact, etc. */
+    payload: json("payload"),
+    /** Last-opened timestamp for "recents" sort. */
+    lastOpenedAt: timestamp("last_opened_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerIdx: index("hub_items_owner_idx").on(t.ownerUserId),
+    parentIdx: index("hub_items_parent_idx").on(t.parentFolderId),
+    typeIdx: index("hub_items_type_idx").on(t.itemType),
+    visibilityIdx: index("hub_items_visibility_idx").on(t.visibility),
+    orgIdx: index("hub_items_org_idx").on(t.organizationId),
+    pageIdx: index("hub_items_page_idx").on(t.ownerUserId, t.pageIndex, t.sortOrder),
+  }),
+);
+
+export type HubItem = typeof hubItems.$inferSelect;
+export type InsertHubItem = typeof hubItems.$inferInsert;
+
+/**
+ * Hub share links — same shape as appShareLinks but for any hub item.
+ * Click → install (clones a private hub item pointing at the same payload).
+ */
+export const hubShareLinks = mysqlTable(
+  "hub_share_links",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    token: varchar("token", { length: 64 }).notNull().unique(),
+    hubItemId: int("hub_item_id").notNull(),
+    createdByUserId: int("created_by_user_id").notNull(),
+    expiresAt: timestamp("expires_at"),
+    maxInstalls: int("max_installs"),
+    useCount: int("use_count").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    itemIdx: index("hub_share_links_item_idx").on(t.hubItemId),
+  }),
+);
+
+export type HubShareLink = typeof hubShareLinks.$inferSelect;
+export type InsertHubShareLink = typeof hubShareLinks.$inferInsert;
+
+
+// ── Engine Widget Layouts (Round 7 — iOS-26 polish) ──
+// Stores per-user, per-engine ordered slug list for the engine hub
+// sortable widget grid. Each row is the canonical layout for one user
+// on one engine surface (wealth | behavioral | relational | stakeholder | platform).
+export const engineWidgetLayouts = mysqlTable(
+  "engine_widget_layouts",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("user_id").notNull(),
+    engineId: varchar("engine_id", { length: 64 }).notNull(),
+    /** JSON array of leaf paths (strings) in the user's preferred order */
+    order: json("order").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => ({
+    userEngineIdx: uniqueIndex("engine_widget_layouts_user_engine_uniq").on(
+      t.userId,
+      t.engineId,
+    ),
+  }),
+);
+
+export type EngineWidgetLayout = typeof engineWidgetLayouts.$inferSelect;
+export type InsertEngineWidgetLayout = typeof engineWidgetLayouts.$inferInsert;
+
+
+
+/* ========================================================================
+ * Hub Item History (R14.16) — multi-tier version history for ANY hubItems row.
+ *
+ * Every create / update / delete / rollback against a hub item is recorded
+ * here. This is the single source of truth for:
+ *   • Per-user "undo" of their own content
+ *   • Professional-for-client edits (actor != onBehalfOf)
+ *   • Org-admin and platform-admin scope queues
+ *
+ * `scopeLevel` mirrors the 5-layer ownership_tier vocabulary so an admin
+ * queue at any level can filter changes that fall under their authority.
+ *   • platform     → visible to global_admin
+ *   • organization → visible to org_admin / manager of that org
+ *   • professional → visible to the professional and their managers
+ *   • client       → visible to the owning client + their advising
+ *                    professional + that professional's manager + org_admin
+ * ======================================================================== */
+
+export const hubItemHistory = mysqlTable(
+  "hub_item_history",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    hubItemId: int("hub_item_id").notNull(),
+    /** What kind of change. */
+    action: mysqlEnum("hub_history_action", [
+      "create",
+      "update",
+      "delete",
+      "rollback",
+      "publish",
+      "adopt",
+    ]).notNull(),
+    /** Tier this change belongs to (for admin-queue scoping). */
+    scopeLevel: mysqlEnum("hub_history_scope", [
+      "platform",
+      "organization",
+      "professional",
+      "client",
+    ]).notNull(),
+    /** Optional ref id within the scope (e.g. organizationId when scope=organization). */
+    scopeRefId: int("scope_ref_id"),
+    /** Who performed the action. */
+    actorId: int("actor_id").notNull(),
+    /** When acting on behalf of someone (professional editing a client's item). */
+    onBehalfOfId: int("on_behalf_of_id"),
+    /** JSON snapshot of the row BEFORE the change (null on create). */
+    previousData: json("previous_data"),
+    /** JSON snapshot of the row AFTER the change (null on delete). */
+    newData: json("new_data"),
+    /** Free-form note (e.g. "promoted to canonical track"). */
+    note: text("note"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    itemIdx: index("hub_history_item_idx").on(t.hubItemId),
+    actorIdx: index("hub_history_actor_idx").on(t.actorId),
+    onBehalfIdx: index("hub_history_on_behalf_idx").on(t.onBehalfOfId),
+    scopeIdx: index("hub_history_scope_idx").on(t.scopeLevel, t.scopeRefId),
+    createdIdx: index("hub_history_created_idx").on(t.createdAt),
+  }),
+);
+
+export type HubItemHistory = typeof hubItemHistory.$inferSelect;
+export type InsertHubItemHistory = typeof hubItemHistory.$inferInsert;

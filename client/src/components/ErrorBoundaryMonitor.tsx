@@ -134,7 +134,7 @@ export default function ErrorBoundaryMonitor() {
         <div className="p-3 border-b border-white/10">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-            <input type="text" placeholder="Search errors..." value={searchTerm} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-md pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            <input type="text" aria-label="Search errors" placeholder="Search errors..." value={searchTerm} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-md pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
           </div>
           <div className="flex items-center justify-between text-xs mt-3">
             {(['all', 'new', 'seen', 'resolved'] as const).map(f => (

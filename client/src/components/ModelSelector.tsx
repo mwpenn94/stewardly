@@ -1,10 +1,11 @@
 /**
- * ModelSelector — Manus-style model tier dropdown
+ * ModelSelector — Stewardly mode dropdown
  *
- * Matches the Manus UI pattern: dropdown with model name, description,
- * and checkmark on selected. Shown in task header or home page.
+ * Tier picker shown in task header / home. Internal IDs are preserved
+ * (`manus-next-*`) so the agent runtime + MODEL_TO_MODE mapping stay stable;
+ * only the user-facing labels and descriptions changed.
  *
- * Models: Manus Max (default), Manus 1.0, Manus Lite
+ * Modes: Limitless (∞), Pro (default), Standard, Lite.
  */
 import { useState, useRef, useEffect } from "react";
 import { Check, ChevronDown, Zap, Sparkles, Leaf, Infinity } from "lucide-react";
@@ -22,29 +23,29 @@ export interface ModelOption {
 const MODELS: ModelOption[] = [
   {
     id: "manus-next-limitless",
-    name: "Manus Limitless",
-    description: "Unlimited reasoning and execution. No token, turn, or continuation limits.",
+    name: "Limitless",
+    description: "Unbounded reasoning depth. Best for portfolio-wide reviews, multi-engine planning, or anything you want chewed on without ceiling.",
     icon: Infinity,
     tier: "limitless",
   },
   {
     id: "manus-next-max",
-    name: "Manus Max",
-    description: "High-performance agent designed for complex tasks.",
+    name: "Pro",
+    description: "High-performance steward for complex work — advisory drafts, household analysis, multi-step automations.",
     icon: Zap,
     tier: "max",
   },
   {
     id: "manus-next-standard",
-    name: "Manus 1.0",
-    description: "Versatile agent capable of handling most tasks.",
+    name: "Standard",
+    description: "Balanced steward for everyday tasks — quick research, routine updates, light planning.",
     icon: Sparkles,
     tier: "standard",
   },
   {
     id: "manus-next-lite",
-    name: "Manus Lite",
-    description: "A lightweight agent for everyday tasks.",
+    name: "Lite",
+    description: "Lightweight, fast responses for simple lookups and short turns.",
     icon: Leaf,
     tier: "lite",
   },

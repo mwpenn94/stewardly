@@ -1,5 +1,5 @@
 /**
- * Manus Next Dashboard — 4-Layer Agent Stack Control Center
+ * Stewardly Dashboard — 4-Layer Agent Stack Control Center
  *
  * Surfaces AEGIS pre/post-flight metrics, ATLAS goal decomposition state,
  * and Sovereign multi-provider routing health in a single unified view.
@@ -628,7 +628,7 @@ export default function SovereignDashboard() {
             <Layers className="w-6 h-6 text-foreground" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">Manus Next</h1>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Stewardly</h1>
             <p className="text-sm text-muted-foreground">4-Layer Agent Stack Control Center</p>
           </div>
         </div>

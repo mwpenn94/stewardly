@@ -26,25 +26,29 @@ describe("P20 — Stripe Checkout Integration", () => {
       expect(products).toContain('mode: "payment" | "subscription"');
     });
 
-    it("includes Pro Monthly subscription at $39/month", () => {
-      expect(products).toContain("pro_monthly");
-      expect(products).toContain("3900");
+    // Stewardly tier catalog (rebuilt from generic Manus Pro/Team plans).
+    // Source of truth: server/products.ts. The 4 tiers map to the 5 personas
+    // (individual, advisor, manager, organization-admin, platform-admin) with
+    // strict subsumption validated in server/stripe.test.ts.
+    it("includes Individual tier subscription at $19/month", () => {
+      expect(products).toContain("tier_individual_monthly");
+      expect(products).toContain("1900");
       expect(products).toMatch(/interval.*month/);
     });
 
-    it("includes Pro Yearly subscription with savings", () => {
-      expect(products).toContain("pro_yearly");
-      expect(products).toContain("37400");
-    });
-
-    it("includes Team Monthly subscription", () => {
-      expect(products).toContain("team_monthly");
+    it("includes Professional tier subscription at $99/month", () => {
+      expect(products).toContain("tier_professional_monthly");
       expect(products).toContain("9900");
     });
 
-    it("includes one-time credits purchase", () => {
-      expect(products).toContain("credits_100");
-      expect(products).toContain('mode: "payment"');
+    it("includes Manager tier subscription at $199/month", () => {
+      expect(products).toContain("tier_manager_monthly");
+      expect(products).toContain("19900");
+    });
+
+    it("includes Organization tier subscription at $499/month", () => {
+      expect(products).toContain("tier_organization_monthly");
+      expect(products).toContain("49900");
     });
 
     it("exports getProductById helper", () => {

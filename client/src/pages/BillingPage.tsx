@@ -159,9 +159,9 @@ export default function BillingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <h1 className="text-2xl font-semibold text-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>
+          <h2 className="text-2xl font-semibold text-foreground mb-1" style={{ fontFamily: "var(--font-heading)" }}>
             Usage & Billing
-          </h1>
+          </h2>
           <p className="text-sm text-muted-foreground">Your task activity, subscription, and payment history.</p>
         </motion.div>
 
@@ -294,41 +294,71 @@ export default function BillingPage() {
           </motion.div>
         )}
 
-        {/* Plans & Credits */}
+        {/* Plans — Stewardly tier cards (mirrors L5→L2 surfaces) */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.25 }}
           className="mt-6"
+          data-testid="billing-tier-cards"
         >
           <h3 className="text-sm font-medium text-foreground mb-3" style={{ fontFamily: "var(--font-heading)" }}>
             <CreditCard className="w-4 h-4 inline mr-2" />
-            Plans & Credits
+            Stewardly tiers
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {(productsQuery.data ?? []).map((product: any) => (
-              <div key={product.id} className="bg-card border border-border/60 rounded-xl p-4">
-                <h4 className="text-sm font-semibold text-foreground">{product.name}</h4>
-                <p className="text-xs text-muted-foreground mt-1 mb-3">{product.description}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-semibold text-foreground">
-                    ${product.price}{product.interval ? `/${product.interval === "month" ? "mo" : "yr"}` : ""}
-                  </span>
+          <p className="text-xs text-muted-foreground mb-3">
+            Each tier <strong>strictly subsumes</strong> the lower tiers. Upgrade or downgrade anytime via the Stripe customer portal.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {(productsQuery.data ?? []).map((product: any) => {
+              const isCurrent = subscription?.plan?.amount === Math.round((product.price ?? 0) * 100);
+              return (
+                <div
+                  key={product.id}
+                  className="glass-card p-4 flex flex-col"
+                  data-testid={`tier-card-${product.tier ?? product.id}`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="text-sm font-semibold text-foreground">{product.name}</h4>
+                    {isCurrent && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium">
+                        Current
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">{product.description}</p>
+                  <div className="text-2xl font-semibold text-foreground tabular-nums mb-3" style={{ fontFamily: "var(--font-heading)" }}>
+                    ${product.price}
+                    <span className="text-xs text-muted-foreground font-normal ml-1">
+                      /{product.interval === "month" ? "mo" : product.interval === "year" ? "yr" : "once"}
+                    </span>
+                  </div>
+                  {Array.isArray(product.features) && product.features.length > 0 && (
+                    <ul className="text-xs space-y-1 mb-4 text-muted-foreground">
+                      {product.features.map((f: string) => (
+                        <li key={f} className="flex items-start gap-1.5">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0" />
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <button
                     onClick={() => handleCheckout(product.id)}
-                    disabled={checkingOut === product.id}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                    disabled={checkingOut === product.id || isCurrent}
+                    data-testid={`tier-cta-${product.tier ?? product.id}`}
+                    className="mt-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                   >
                     {checkingOut === product.id ? (
                       <Loader2 className="w-3 h-3 animate-spin" />
                     ) : (
                       <ExternalLink className="w-3 h-3" />
                     )}
-                    {product.mode === "subscription" ? "Subscribe" : "Buy"}
+                    {isCurrent ? "Current plan" : product.mode === "subscription" ? "Subscribe" : "Buy"}
                   </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <p className="text-[10px] text-muted-foreground mt-2">
             Test with card 4242 4242 4242 4242. Payments processed by Stripe.
@@ -389,7 +419,7 @@ export default function BillingPage() {
                     {payment.receiptUrl && (
                       <a
                         href={payment.receiptUrl}
-                        target="_blank"
+                        target="_blank" rel="noopener noreferrer"
                         rel="noopener noreferrer"
                         className="text-muted-foreground hover:text-foreground transition-colors"
                         title="View receipt"

@@ -28,7 +28,7 @@ describe("ModelSelector — Limitless tier in dropdown", () => {
   });
 
   it("Limitless model has name 'Manus Limitless'", () => {
-    expect(src).toContain('"Manus Limitless"');
+    expect(src).toContain('"Limitless"');
   });
 
   it("Limitless model has tier 'limitless'", () => {
@@ -210,7 +210,7 @@ describe("ModelSelector — Limitless mode styling", () => {
   });
 
   it("Limitless mode label is 'Limitless'", () => {
-    expect(src).toContain('"Manus Limitless"');
+    expect(src).toContain('"Limitless"');
   });
 
   it("MODES array has exactly 4 entries", () => {
