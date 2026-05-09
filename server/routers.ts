@@ -177,6 +177,7 @@ import { webhookIngestionRouter } from "./routers/webhookIngestion";
 import { workflowRouter } from "./routers/workflow";
 import { workflowAutomationRouter } from "./routers/workflowAutomation";
 import { workspaceRouter } from "./routers/workspace";
+import { substrateBridgeRouter } from "./routers/substrateBridge";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -427,6 +428,7 @@ export const appRouter = router({
   workflowAutomation: workflowAutomationRouter,
   workflowOrchestrator: workflowOrchestratorRouter,
   workspace: workspaceRouter,
+  substrateBridge: substrateBridgeRouter,
 });
 
 export type AppRouter = typeof appRouter;

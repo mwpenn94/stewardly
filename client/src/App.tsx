@@ -76,6 +76,8 @@ const PeopleHubPage = lazy(() => import("./pages/PeopleHub"));
 const RelationalApplet = lazy(() => import("./pages/RelationalApplet"));
 const MissionalApplet = lazy(() => import("./pages/MissionalApplet"));
 const ContinuousImprovementApplet = lazy(() => import("./pages/ContinuousImprovementApplet"));
+const FormationalApplet = lazy(() => import("./pages/FormationalApplet"));
+const ContextualApplet = lazy(() => import("./pages/ContextualApplet"));
 const OrganizationsPage = lazy(() => import("./pages/Organizations"));
 const OutreachAutomationPage = lazy(() => import("./pages/OutreachAutomation"));
 const IntelligenceHubPage = lazy(() => import("./pages/IntelligenceHub"));
@@ -388,8 +390,16 @@ function Router() {
 
       {/* Canonical 5-engine hubs (Section 3 taxonomy) */}
       {/* Round 14.2: each mission applet renders the corresponding source hub verbatim. */}
+      {/* Wave B.3: dedicated Formational applet wrapper. The previous
+          implementation mounted LearningHome directly, hiding all the
+          other Formational sub-surfaces (My Content, Skills, Sovereign
+          Study, Library, Knowledge Admin, Deep Research, Memory).
+          The applet now provides the scoped sidebar that exposes them. */}
       <Route path="/formational">
-        <SuspenseRoute><LearningHome embedded /></SuspenseRoute>
+        <SuspenseRoute><FormationalApplet /></SuspenseRoute>
+      </Route>
+      <Route path="/formational/:tab">
+        <SuspenseRoute><FormationalApplet /></SuspenseRoute>
       </Route>
       <Route path="/my-content">
         <SuspenseRoute><MyContent /></SuspenseRoute>
@@ -412,11 +422,17 @@ function Router() {
       <Route path="/missional/:tab">
         <SuspenseRoute><MissionalApplet /></SuspenseRoute>
       </Route>
+      {/* Wave B.4: dedicated Contextual applet wrapper. The previous
+          implementation mounted IntelligenceHubV2 directly, but the
+          Contextual engine is responsible for memory + audit + search +
+          vault — the applet exposes those surfaces in line with the
+          engine's intent set (contextual.memory.*, contextual.audit.read,
+          contextual.search.query, contextual.vault.*). */}
       <Route path="/contextual">
-        <SuspenseRoute><IntelligenceHubV2 embedded /></SuspenseRoute>
+        <SuspenseRoute><ContextualApplet /></SuspenseRoute>
       </Route>
       <Route path="/contextual/:tab">
-        <SuspenseRoute><IntelligenceHubV2 embedded /></SuspenseRoute>
+        <SuspenseRoute><ContextualApplet /></SuspenseRoute>
       </Route>
       <Route path="/continuous-improvement">
         <SuspenseRoute><ContinuousImprovementApplet /></SuspenseRoute>
