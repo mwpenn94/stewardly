@@ -9056,3 +9056,80 @@ User report: pipeline now reaches "Heard: …" → "Thinking…" → "Summarizin
 - [x] R14.37: Verified — the duplicate Hub icon at the bottom of the sidebar is already removed (R14.28 took it out). User confirmed visually. Adding regression vitest so it stays gone.
 
 - [x] R14.38: Hands-free voice FAB now visible on Home. Removed the `location === "/"` exclusion in GlobalVoiceFAB; FAB only hides on /chat, /agent-chat, /task/* (where their own input owns the mic). Home input mic = single-shot dictation; global FAB = continuous hands-free mode — both now coexist on Home. Regression vitest pinned.
+
+## Phase 1 — Brief & Confirmation [COMPLETE]
+- [x] P1.1: Audit deployed surface, source repos (5), deployment surfaces (3), AFK mandate
+- [x] P1.2: Build 28-commitment matrix with cross-source evidence
+- [x] P1.3: Document 14 judgment calls, 6 remaining open questions
+- [x] P1.4: Lock Reconciliation C hierarchy (5 structural layers + orthogonal delegate-scope)
+- [x] P1.5: Lock C-28 GitHub canonical principle (O-6 permanently closed)
+- [x] P1.6: Author PHASE1_BRIEF.md, PHASE1_BRIEF_EXECUTIVE_SUMMARY.md, PDF render, feminine-voice TTS audio
+- [x] P1.7: User confirmed; proceed authorized
+
+## Phase 2 — Implementation (Nine Waves)
+
+### Wave 0 — Port and Reset [COMPLETE]
+- [x] W0.1: Inventory deployed working tree and current GitHub repo state
+- [x] W0.2: Port deployed working tree (3,974 source files) into GitHub repo as authoritative baseline
+- [x] W0.3: Delete 179 stray analysis markdowns + 15 stray debug/state files; keep only PHASE1_BRIEF.md, PHASE1_BRIEF_EXECUTIVE_SUMMARY.md, README.md, todo.md at root
+- [x] W0.4: Verify GitHub repo state matches deployed surface
+- [x] W0.5: Establish continuous-merge protocol (every meaningful unit commits + pushes)
+- [x] W0.6: Wave 0 baseline committed as 3f71a9b on main; safety tag pre-wave0-port at 6a27f91; pushed to origin
+
+### Wave A — Foundation (pricing, measurement, non-competition, BYO, plug-and-play)
+- [ ] WA.1: Three-component pricing module (ValueShare + Cost-Plus app/operational + Provider DirectCost, capped at protection ceiling)
+- [ ] WA.2: Two-stage measurement methodology (Stage 1 forward projection + Stage 2 empirical M&V; weighted blend over Days 1-90)
+- [ ] WA.3: Customer-protection ceiling executable invariant
+- [ ] WA.4: BYO first-class path with identical Stewardly economics across four scenarios
+- [ ] WA.5: Dual-anchor non-competition enforcement (economic invariants + AI non-compete covenant; non-scaling-margin reasoning baked into invariant tests)
+- [ ] WA.6: Plug-and-play affordance layer for universe of surfaces (chat, agents, tools, browsers, document studios, music studios, video generators, web-app builders, mobile project builders, deep-research, voice, vision, embedding pipelines, retrieval pipelines, fine-tuning, evals, observability)
+- [ ] WA.7: Provider-neutral abstraction layer (Manus is one provider among many, no privileged-baseline status)
+- [ ] WA.8: Wire Wave A modules into existing routes; commit each WA.* item separately
+
+### Wave B — Architectural integrity
+- [ ] WB.1: Engine-isolation lint rule (per-engine import boundaries)
+- [ ] WB.2: Zero-markup-on-DirectCost executable invariant test
+- [ ] WB.3: Quantic Section 7 boundary runtime block-list
+- [ ] WB.4: Formational engine applet UI skeleton
+- [ ] WB.5: Contextual engine applet UI skeleton
+- [ ] WB.6: Hub and TaskChat shared-substrate parity wiring (C-25)
+- [ ] WB.7: Commit each WB.* separately
+
+### Wave C — Identity & governance
+- [ ] WC.1: Five-structural-layer identity model (Tenant > Org/Firm > Team/Supervisor > Professional > Client)
+- [ ] WC.2: Orthogonal delegate-scope primitive (Reconciliation C)
+- [ ] WC.3: Admin-spectrum runtime gating for /admin/* routes
+- [ ] WC.4: Seven counsel-review flag systems
+- [ ] WC.5: CRUD-and-personalize wiring at every layer + delegate-scopes for all five engine applets
+- [ ] WC.6: Commit each WC.* separately
+
+### Wave D — Memory & portability
+- [ ] WD.1: Phase 11 memory data flows (counsel-review-gated)
+- [ ] WD.2: Export/import for personalized engine applet instances and delegate-scope configurations
+- [ ] WD.3: Audit trail completeness across all five layers and delegate-scopes
+- [ ] WD.4: Commit each WD.* separately
+
+### Wave E — Customer-facing language
+- [ ] WE.1: Pricing UI copy reflecting three-component model honestly
+- [ ] WE.2: BYO onboarding flows with symmetric provider treatment
+- [ ] WE.3: Hierarchy and delegate-scope UX
+- [ ] WE.4: Infrastructure-positioning landing language
+- [ ] WE.5: Commit each WE.* separately
+
+### Wave F — Functional verification
+- [ ] WF.1: Vitest coverage for all invariants
+- [ ] WF.2: Route-level smoke tests
+- [ ] WF.3: Manus-Next capability regression sweep
+- [ ] WF.4: Commit each WF.* separately
+
+### Wave G — Re-incorporation
+- [ ] WG.1: emba_modules formational depth into Formational applet
+- [ ] WG.2: stewardly-ai relational/CRM integrations into Relational engine
+- [ ] WG.3: stewardly-command-center portable patterns (kanban, workflow builder)
+- [ ] WG.4: Commit each WG.* separately
+
+### Wave H — Final convergence
+- [ ] WH.1: Comprehensive UI/UX review (desktop + mobile) recursive until two consecutive no-action passes
+- [ ] WH.2: Documentation update recursive until two consecutive no-action passes
+- [ ] WH.3: Optimized beginner step-by-step guide
+- [ ] WH.4: Final commit and convergence summary delivered to user
