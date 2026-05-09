@@ -19,6 +19,7 @@ import {
   totalCostUsd,
   assertComplianceAdminAllowed,
 } from "./_intent";
+import { quanticGuard } from "./quanticBoundary";
 import { routedInvoke } from "./_llmRouting";
 import type {
   Substrate,
@@ -189,19 +190,21 @@ export function makeSubstrateRouter(opts: SubstrateRouterOpts = {}): SubstrateRo
     async dispatch<TPayload, TData = unknown>(intent: Intent<TPayload>): Promise<IntentResult<TData>> {
       // 1) Compliance + EMBA guards (v3 §3, §7).
       assertComplianceAdminAllowed(intent.meta);
-      // EMBA Section 7: any intent that mentions the protected domain is refused.
-      const stringified = JSON.stringify(intent.payload).toLowerCase();
-      if (stringified.includes("onlinelearning.quantic.edu") || stringified.includes("emba section 7")) {
-        const auditId = randomUUID();
-        await audit({ auditId, intentKind: intent.kind, tenantId: intent.meta.tenantId, ok: false, cost: emptyCost() });
-        return {
+      // EMBA Section 7 (v3 §7.1): any intent that touches the protected
+      // surface is refused unconditionally. Delegated to the dedicated
+      // boundary module; see server/engines/quanticBoundary.ts.
+      const refusal = quanticGuard(intent);
+      if (refusal) {
+        await audit({
+          auditId: refusal.auditId,
+          intentKind: intent.kind,
+          tenantId: intent.meta.tenantId,
           ok: false,
-          error: { code: "EMBA_SECTION_7_BOUNDARY", message: "Stewardly: EMBA Section 7 ToS boundary refused (v3 §7.1)." },
-          invoked: [],
-          cost: emptyCost(),
-          auditId,
-        };
+          cost: refusal.cost,
+        });
+        return refusal as unknown as IntentResult<TData>;
       }
+      const stringified = JSON.stringify(intent.payload ?? "").toLowerCase();
 
       // 2) Local classification before any provider call (v3 §3, classifier-gated).
       const cls = await substrate.classifier.classify({ text: intent.kind + " " + stringified.slice(0, 200) });
