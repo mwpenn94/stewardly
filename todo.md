@@ -7956,3 +7956,98 @@
 - [x] Verify GitHub-only prompts still work correctly via intent routing
 - [x] Verify demonstration+GitHub combo prompts work without guard interference
 - [x] Full suite: 5453/5454 pass (1 flaky network timeout, pre-existing)
+
+## Phase 1 — Deployed-surface audit (added 9 May 2026)
+
+- [ ] PHASE1-DSA-1: Drive stewardly.manus.space against each of the 20 architectural commitments (visible UI surface only — no auth-gated SSO loops)
+- [ ] PHASE1-DSA-2: Reconcile deployed-surface findings against repo-HEAD audit; update PHASE1_BRIEF.md with a delta section
+- [ ] PHASE1-DSA-3: Re-deliver brief to user for confirmation before Phase 2 begins
+
+## Phase 1 Audit Expansion (added 2026-05-09 — multi-source scope)
+
+- [ ] CRITICAL FINDING: deployed stewardly.manus.space is NOT built from mwpenn94/stewardly — bundle references files (pages/calculators/WealthEngineOnboarding.tsx, Panels[A-J], WealthEngineContext, PersonaSidebar5) absent in cloned repo
+- [ ] Audit mwpenn94/stewardly-ai (the actual deployment source — confirmed from data-loc strings in main bundle)
+- [ ] Audit mwpenn94/manus-next-app and the deployed surface at manusnext-mlromfub.manus.space for app-development capability regressions
+- [ ] Audit mwpenn94/emba_modules for learning/formational capabilities to incorporate
+- [ ] Audit mwpenn94/stewardly-command-center for relational/people/CRM capabilities to incorporate
+- [ ] Audit stewardlyoriginal.manus.space/chat for any unique surfaces
+- [ ] Build source -> deployment -> commitment matrix
+- [ ] Inventory three gap categories (deployed-vs-rebuild, manus-next regressions, emba/command-center re-incorporation)
+- [ ] Rewrite PHASE1_BRIEF.md from scratch with full evidence matrix + gap inventory
+- [ ] Present brief to user; no Phase 2 code until confirmation
+
+## Phase 1 Audit — Corrected Scope (user clarification 2026-05-09)
+
+- [ ] CORRECTION: stewardly.manus.space IS the v3 build (per user). It's not stewardly-ai bytes still cached.
+- [ ] Therefore the deployed v3 surface (224 routes, full /wealth-engine/* suite, /learning/*, /admin/*, all 5 engines + /hub) IS the work product to evaluate against the AFK mandate.
+- [ ] mwpenn94/stewardly GitHub repo is OUT OF SYNC with the deployed v3 — repo has 46 pages / 53 routers, deployment has ~180+ pages judged by route count. The active source-of-truth is the Manus webdev project hosting stewardly.manus.space, not the GitHub repo.
+- [ ] Need to clarify with user: which working tree should ongoing v3 work edit — the GitHub repo, the deployed Manus webdev project, or both via sync?
+- [ ] Rebuild gap inventory in 3 corrected categories: (a) deployed-v3-vs-AFK-mandate, (b) manus-next-app capabilities not in deployed v3, (c) stewardly-ai/emba/command-center re-incorporation candidates not yet in deployed v3
+
+
+## Phase 1 Brief — Framing refinements (user 2026-05-09, in-flight)
+
+- [ ] FRAMING: Five engines are ontologically complete (cover universe of user cases) but operationally imperfect; Continuous-Improvement engine drives gap-closing.
+- [ ] FRAMING: Stewardly is infrastructure for all AI/agent/tooling, AND ships with great out-of-box benefit (default Manus AI etc.) so users get immediate value before bringing their own.
+- [ ] FRAMING: BYOM and bundled-AI are equal first-class paths; both honored by cost-plus / efficiency-gains pricing.
+- [ ] FRAMING: Engine applets ship turned-on within layer constraints. Users CRUD/extend/personalize within their hierarchy's controls (tenant constrains firm-admin; firm-admin constrains advisor; etc.).
+- [ ] Add C-21 (engine ontological completeness + continuous-improvement via the CI engine itself).
+- [ ] Add C-22 (infrastructure-for-all-AI-tooling with great out-of-box AND BYOM as equal paths, cost-plus-honored).
+- [ ] Add C-23 (CRUD/extend/personalize on engine applets at every layer within hierarchy controls).
+- [ ] Reorder Wave plan to foundationalize cost-plus/M&V pricing alongside engine substrate (not after).
+- [ ] Bring source-cross-reference evidence (5 repos, 3 deployed surfaces, GitHub-vs-deployed sync gap, emba/stewardly-ai re-incorporation) into existing commitment matrix as evidence column expansions and as gap-source attribution.
+- [ ] Produce TTS-optimized executive summary as both PDF and audio for digest before Phase 2 confirmation.
+
+
+## Phase 1 Brief — Final framing refinements (added after first executive summary)
+
+- [ ] Document **three-dimensional dynamism**: horizontal (BYO AI/agent/tool universe + accessibility/ease-of-use), vertical (cost-plus pricing + efficiency-gains for both BYO consumption AND internal-bundled consumption), extensibility (persistent surfaces/artifacts/files/tools)
+- [ ] Add **C-23: Strategic non-competition with foundation-model providers** — internal capabilities scoped to support the universe of user-brought capabilities efficiently, never to displace them; the platform deliberately does not position to become its own Anthropic, OpenAI, etc.
+- [ ] Add **C-24: Hub and TaskChat as complementary first-class front doors** over a shared persistent substrate — Hub is the persistent-surface/artifact-browse front door; TaskChat (Home) is the conversational-create front door; neither subordinate to the other; both anchored to the same persistent substrate
+- [ ] Update merged PHASE1_BRIEF.md with three-dimensional dynamism framing (Section 0.7) plus C-23/C-24
+- [ ] Update PHASE1_BRIEF_EXECUTIVE_SUMMARY.md to reflect the same
+- [ ] Re-render PDF
+- [ ] Generate feminine-voice audio narration
+- [ ] Deliver: brief + PDF + audio
+
+
+## Phase 1 Brief — C-20s expansion (added per user direction)
+
+- [ ] Due-diligence pass on pricing model framing across task history references — confirm whether current authoritative framing is efficiency-gains-only, efficiency-gains-primary with cost-plus pass-through, or cost-plus + efficiency-gains hybrid
+- [ ] Restate C-22 (great out-of-box AND first-class BYO including Manus as a BYO provider, not a privileged baseline)
+- [ ] Restate C-23 (CRUD-and-personalize at every layer; extended to include internal-AI-agent tool CRUD/adoption mirroring skill CRUD/import/export pattern)
+- [ ] Restate C-24 (dual-anchor strategic non-competition; economic anchor restated to reflect efficiency-gain-share if that is the correct pricing model)
+- [ ] Add C-26 (technological completeness: architecture commits to filling industry gap of dynamically supporting universe of current and future AI capabilities and surfaces — chat, agents, tools, browsers, document/music/video studios, web-app/mobile builders, deep research, voice, vision, embeddings, retrieval, fine-tuning, evals, observability)
+- [ ] Add C-27 (provider-neutral BYO including Manus — Manus is one provider among many; bundled out-of-box experience is internal-AI-and-five-engines, not Manus-as-default; no provider receives privileged-baseline status)
+- [ ] Update merged PHASE1_BRIEF.md
+- [ ] Update PHASE1_BRIEF_EXECUTIVE_SUMMARY.md
+- [ ] Re-render PDF
+- [ ] Re-generate feminine-voice audio narration
+- [ ] Deliver updated bundle for confirmation
+
+
+## Phase 1 Brief — Bifurcated pricing framing (added per user direction)
+
+- [ ] Restate C-2 (was: "unified pricing formula"; now: "bifurcated pricing — internal/app path = cost-plus + efficiency-gains; BYO path = efficiency-gains only; customer-protection ceiling preserved path-aware")
+- [ ] Restate C-24 economic anchor (foundation-model non-competition is structurally enforced because: (a) on internal path, cost-plus + efficiency-gains rewards Stewardly for minimizing DirectCost rather than maximizing it — opposite of foundation-model economics; (b) on BYO path, efficiency-gains-only aligns Stewardly's economic interest with foundation-model provider success — Stewardly earns more when user's chosen provider becomes more capable)
+- [ ] Reconcile C-2 with AFK mandate L066-L079 (unified pricing formula + customer protection ceiling): authoritative reading is that AFK describes the internal path; user's bifurcation extends to BYO; "identical Stewardly economics across all four scenarios" (L079) means identical RETURNS per unit of customer value delivered, not identical price formulas
+- [ ] Strengthen C-22: BYO is genuinely first-class (not a discount path or subordinated path) because efficiency-gains-only pricing aligns Stewardly's economic interest with the user's BYO provider success
+- [ ] Add C-26 (technological completeness)
+- [ ] Add C-27 (provider-neutral BYO including Manus)
+- [ ] Update PHASE1_BRIEF.md
+- [ ] Update PHASE1_BRIEF_EXECUTIVE_SUMMARY.md
+- [ ] Re-render PDF
+- [ ] Re-generate feminine-voice audio narration
+- [ ] Deliver updated bundle for confirmation
+
+## Phase 1 Brief — Reconciliation C + GitHub canonical (locked, non-revisitable)
+- [ ] Rewrite C-3 (hierarchy) as five structural layers plus orthogonal delegate-scope dimension
+- [ ] Rewrite C-23 (CRUD-and-personalize) to apply at each of five layers AND through delegate-scopes
+- [ ] Add C-28 — GitHub as Permanent Canonical Source of Truth
+- [ ] Close O-6 permanently
+- [ ] Add Wave 0 first task: port deployed working tree into mwpenn94/stewardly GitHub repo
+- [ ] Add D-N judgment call: Reconciliation C rationale
+- [ ] Update PHASE1_BRIEF_EXECUTIVE_SUMMARY.md to match
+- [ ] Re-render PDF
+- [ ] Re-generate feminine-voice audio narration
+- [ ] Commit all updates to GitHub repo (first continuous-merge instance)
